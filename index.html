@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>確認テスト for Kota</title>
+<style>
+:root {
+  --bg:#f7f0e6; --paper:#fdfaf4; --ink:#1c1208;
+  --indigo:#1e3a5f; --vermilion:#b83232; --gold:#b8880a;
+  --sage:#3d6b4f; --muted:#7a6e60;
+  --border:rgba(28,18,8,0.12); --shadow:rgba(28,18,8,0.08);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Meiryo',sans-serif;color:var(--ink);min-height:100vh;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(28,18,8,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(28,18,8,.03) 1px,transparent 1px);background-size:32px 32px;pointer-events:none;z-index:0;}
+
+header{background:var(--indigo);color:#fff;padding:0 16px;position:sticky;top:0;z-index:100;border-bottom:3px solid var(--gold);}
+.header-inner{max-width:780px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:52px;}
+.header-title{font-family:'Hiragino Mincho ProN','Yu Mincho','MS Mincho',serif;font-size:16px;font-weight:800;letter-spacing:3px;color:#fff;}
+.header-title span{color:var(--gold);font-size:10px;letter-spacing:2px;display:block;font-weight:400;margin-bottom:1px;}
+.header-stats{display:flex;gap:12px;}
+.stat{text-align:center;font-family:'Hiragino Mincho ProN','Yu Mincho','MS Mincho',serif;}
+.stat-num{font-size:18px;font-weight:800;line-height:1;}
+.stat-lbl{font-size:9px;letter-spacing:1px;opacity:.7;}
+.stat.correct .stat-num{color:#6dbb8a;}
+.stat.wrong .stat-num{color:#e07070;}
+.stat.total .stat-num{color:var(--gold);}
+
+main{max-width:780px;margin:0 auto;padding:20px 12px 80px;position:relative;z-index:1;}
+.screen{display:none;}
+.screen.active{display:block;animation:fadeIn .3s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+.home-hero{text-align:center;padding:32px 16px 28px;background:var(--paper);border:1px solid var(--border);border-radius:6px;margin-bottom:16px;box-shadow:0 2px 12px var(--shadow);}
+.home-hero h2{font-family:'Hiragino Mincho ProN','Yu Mincho','MS Mincho',serif;font-size:24px;font-weight:800;color:var(--indigo);letter-spacing:4px;margin-bottom:8px;}
+.home-hero p{font-size:13px;color:var(--muted);line-height:1.8;}
+.section-label{font-size:10px;letter-spacing:3px;color:var(--muted);border-bottom:1px solid var(--border);padding-bottom:6px;margin-bottom:10px;font-weight:500;}
+
+.mode-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:20px;}
+.mode-card{padding:14px 8px;background:var(--paper);border:2px solid var(--border);border-radius:6px;cursor:pointer;transition:all .2s;text-align:center;}
+.mode-card:hover{border-color:var(--indigo);transform:translateY(-2px);box-shadow:0 4px 14px var(--shadow);}
+.mode-card.miss-mode{border-color:#e07070;}
+.mode-card.miss-mode:hover{border-color:var(--vermilion);background:rgba(184,50,50,.04);}
+.mode-icon{font-size:24px;margin-bottom:6px;}
+.mode-title{font-family:'Hiragino Mincho ProN','Yu Mincho','MS Mincho',serif;font-size:13px;font-weight:800;color:var(--indigo);letter-spacing:1px;margin-bottom:3px;}
+.mode-desc{font-size:10px;color:var(--muted);line-height:1.4;}
+.miss-count-badge{display:inline-block;background:var(--vermilion);color:#fff;font-size:10px;font-weight:600;border-radius:10px;padding:1px 7px;margin-top:4px;}
+
+.era-section{background:var(--paper);border:1px solid var(--border);border-radius:6px;padding:16px;margin-bottom:16px;box-shadow:0 2px 8px var(--shadow);}
+.era-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.era-header h3{font-family:'Hiragino Mincho ProN','Yu Mincho','MS Mincho',serif;font-size:14px;font-weight:800;color:var(--indigo);letter-spacing:2px;}
+.era-select-btns{display:flex;gap:6px;}
+.era-select-btn{padding:4px 10px;border:1px solid var(--border);background:var(--bg);border-radius:12px;font-size:11px;cursor:pointer;color:var(--muted);transition:all .15s;}
+.era-select-btn:hover{border-color:var(--indigo);color:var(--indigo);}
+.era-list{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;}
+.era-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:4px;cursor:pointer;transition:all .15s;background:var(--bg);}
+.era-item:hover{border-color:var(--gold);}
+.era-item.selected{border-color:var(--indigo);background:rgba(30,58,95,.06);}
+.era-cb{width:16px;height:16px;border:2px solid var(--border);border-radius:3px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;}
+.era-item.selected .era-cb{background:var(--indigo);border-color:var(--indigo);color:#fff;font-size:11px;}
+.era-name{font-size:13px;font-weight:500;color:var(--ink);}
+.era-count{font-size:10px;color:var(--muted);margin-left:auto;}
+.era-accuracy{font-size:10px;margin-left:4px;}
+.start-selected-btn{width:100%;margin-top:12px;padding:12px;background:var(--indigo);color:var(--gold);border:2px solid var(--gold);border-radius:6px;font-family:'Hiragino Mincho ProN','Yu Mincho','MS Mincho',serif;font-size:14px;font-weight:800;letter-spacing:2px;cursor:pointer;transition:all .2s;}
+.start-selected-btn:hover{background:var(--gold);color:var(--indigo);}
+.start-selected-btn:disabled{opacity:.4;cursor:not-allowed;}
+
+.stats-section{background:var(--paper);border:1px solid var(--border);border-radius:6px;padding:16px;margin-bottom:16px;box-shadow:0 2px 8px var(--shadow);}
+.stats-title{font-family:'Hiragino Mincho ProN','Yu Mincho','MS Mincho',serif;font-size:13px;font-weight:800;color:var(--indigo);letter-spacing:2px;margin-bottom:10px;}
+.era-stat-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
+.era-stat-name{font-size:12px;color:var(--ink);width:110px;flex-shrink:0;}
+.era-stat-bar-wrap{flex:1;height:10px;background:rgba(28,18,8,.08);border-radius:5px;overflow:hidden;}
+.era-stat-bar{height:100%;border-radius:5px;transition:width .5s ease;}
+.era-stat-pct{font-size:11px;font-weight:600;width:36px;text-align:right;flex-shrink:0;}
+.era-stat-detail{font-size:10px;color:var(--muted);width:52px;text-align:right;flex-shrink:0;}
+
+.miss-list{display:flex;flex-direction:column;gap:6px;margin-top:12px;}
+.miss-item{background:var(--paper);border:1px solid var(--border);border-left:3px solid var(--vermilion);border-radius:4px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;}
+.miss-item-q{font-size:12px;color:var(--ink);line-height:1.5;flex:1;}
+.miss-item-a{font-family:'Hiragino Mincho ProN','Yu Mincho','MS Mincho',serif;font-size:11px;color:var(--muted);margin-left:8px;white-space:nowrap;}
+.empty-msg{text-align:center;padding:24px;color:var(--muted);font-size:13px;}
+
+.quiz-header{display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+.progress-bar{flex:1;height:5px;background:rgba(28,18,8,.1);border-radius:3px;overflow:hidden;}
+.progress-fill{height:100%;background:linear-gradient(to right,var(--vermilion),var(--gold));border-radius:3px;transition:width .4s ease;}
+.progress-label{font-family:'Hiragino Mincho ProN','Yu Mincho','MS Mincho',serif;font-size:12px;color:var(--indigo);font-weight:600;white-space:nowrap;}
+.q-card{background:var(--paper);border:1px solid var(--border);border-radius:6px;padding:24px 20px;box-shadow:0 2px 12px var(--shadow);margin-bottom:12px;position:relative;overflow:hidden;}
+.q-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(to right,var(--vermilion),var(--gold),var(--indigo));}
+.q-category{font-size:10px;letter-spacing:2px;color:var(--vermilion);margin-bottom:10px;font-weight:500;}
+.q-text{font-family:'Hiragino Mincho ProN','Yu Mincho','MS Mincho',serif;font-size:17px;font-weight:600;line-height:1.9;color:var(--indigo);letter-spacing:.5px;}
+.answer-btns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:20px;}
+.ans-btn{padding:14px;border:2px solid var(--border);border-radius:6px;background:var(--paper);cursor:pointer;font-family:'Hiragino Mincho ProN','Yu Mincho','MS Mincho',serif;font-size:14px;font-weight:600;letter-spacing:2px;transition:all .2s;display:flex;flex-direction:column;align-items:center;gap:3px;}
+.ans-btn .btn-icon{font-size:22px;}
+.ans-btn.know{border-color:#3d6b4f;color:var(--sage);}
+.ans-btn.know:hover{background:rgba(61,107,79,.08);transform:scale(1.02);}
+.ans-btn.dontknow{border-color:var(--vermilion);color:var(--vermilion);}
+.ans-btn.dontknow:hover{background:rgba(184,50,50,.06);transform:scale(1.02);}
+
+.reveal-panel{background:var(--paper);border:1px solid var(--border);border-radius:6px;overflow:hidden;margin-bottom:10px;box-shadow:0 2px 12px var(--shadow);animation:slideIn .3s ease;}
+@keyframes slideIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.reveal-header{padding:12px 20px;display:flex;align-items:center;gap:10px;}
+.reveal-header.correct-header{background:rgba(61,107,79,.08);border-bottom:2px solid #3d6b4f;}
+.reveal-header.wrong-header{background:rgba(184,50,50,.06);border-bottom:2px solid var(--vermilion);}
+.reveal-mark{font-size:24px;}
+.reveal-status{font-family:'Hiragino Mincho ProN','Yu Mincho','MS Mincho',serif;font-size:14px;font-weight:800;letter-spacing:2px;}
+.correct-header .reveal-status{color:var(--sage);}
+.wrong-header .reveal-status{color:var(--vermilion);}
+.reveal-body{padding:16px 20px;}
+.answer-label{font-size:9px;letter-spacing:3px;color:var(--muted);margin-bottom:6px;}
+.answer-text{font-family:'Hiragino Mincho ProN','Yu Mincho','MS Mincho',serif;font-size:18px;font-weight:700;color:var(--indigo);letter-spacing:1px;line-height:1.6;margin-bottom:10px;padding:10px 14px;background:rgba(30,58,95,.05);border-left:3px solid var(--indigo);border-radius:2px;}
+.explanation{font-size:13px;line-height:1.9;color:#444;}
+.revise-btn{width:100%;padding:11px;background:rgba(184,50,50,.06);color:var(--vermilion);border:2px dashed var(--vermilion);border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;transition:all .2s;margin-bottom:8px;display:block;}
+.revise-btn:hover{background:rgba(184,50,50,.12);}
+.next-btn{width:100%;padding:13px;background:var(--indigo);color:var(--gold);border:2px solid var(--gold);border-radius:6px;font-family:'Hiragino Mincho ProN','Yu Mincho','MS Mincho',serif;font-size:14px;font-weight:600;letter-spacing:3px;cursor:pointer;transition:all .2s;}
+.next-btn:hover{background:var(--gold);color:var(--indigo);}
+
+.result-card{background:var(--paper);border:1px solid var(--border);border-radius:6px;padding:32px 20px;text-align:center;box-shadow:0 2px 12px var(--shadow);margin-bottom:16px;}
+.result-big{font-family:'Hiragino Mincho ProN','Yu Mincho','MS Mincho',serif;font-size:72px;font-weight:900;line-height:1;color:var(--vermilion);}
+.result-denom{font-family:'Hiragino Mincho ProN','Yu Mincho','MS Mincho',serif;font-size:16px;color:var(--indigo);margin:6px 0 20px;letter-spacing:2px;}
+.result-msg{font-family:'Hiragino Mincho ProN','Yu Mincho','MS Mincho',serif;font-size:15px;line-height:1.8;color:var(--indigo);margin-bottom:24px;}
+.result-actions{display:flex;gap:8px;flex-direction:column;}
+.result-btn{padding:13px;border-radius:6px;font-family:'Hiragino Mincho ProN','Yu Mincho','MS Mincho',serif;font-size:14px;font-weight:600;letter-spacing:2px;cursor:pointer;transition:all .2s;border:2px solid;}
+.result-btn.primary{background:var(--indigo);color:var(--gold);border-color:var(--gold);}
+.result-btn.primary:hover{background:var(--gold);color:var(--indigo);}
+.result-btn.secondary{background:transparent;color:var(--indigo);border-color:var(--indigo);}
+.result-btn.secondary:hover{background:var(--indigo);color:#fff;}
+.result-btn.miss{background:var(--vermilion);color:#fff;border-color:var(--vermilion);}
+.result-btn.miss:hover{opacity:.85;}
+
+.result-era-breakdown{background:var(--paper);border:1px solid var(--border);border-radius:6px;padding:16px;margin-bottom:16px;box-shadow:0 2px 8px var(--shadow);}
+.result-era-title{font-family:'Hiragino Mincho ProN','Yu Mincho','MS Mincho',serif;font-size:13px;font-weight:800;color:var(--indigo);letter-spacing:2px;margin-bottom:12px;}
+.result-era-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.result-era-name{font-size:12px;color:var(--ink);width:110px;flex-shrink:0;}
+.result-era-bar-wrap{flex:1;height:12px;background:rgba(28,18,8,.08);border-radius:6px;overflow:hidden;}
+.result-era-bar{height:100%;border-radius:6px;transition:width .6s ease;}
+.result-era-pct{font-size:11px;font-weight:700;width:36px;text-align:right;}
+.result-era-detail{font-size:10px;color:var(--muted);width:40px;text-align:right;}
+
+.back-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--muted);font-size:12px;cursor:pointer;transition:all .2s;margin-bottom:14px;}
+.back-btn:hover{color:var(--indigo);border-color:var(--indigo);}
+
+@media(max-width:520px){
+  .mode-grid{grid-template-columns:repeat(3,1fr);}
+  .era-list{grid-template-columns:1fr;}
+  .answer-btns{grid-template-columns:1fr 1fr;}
+  .q-text{font-size:15px;}
+  .result-big{font-size:56px;}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="header-inner">
+    <div class="header-title">
+      <span>中学社会 · 日本史</span>
+      確認テスト for Kota
+    </div>
+    <div class="header-stats">
+      <div class="stat correct"><div class="stat-num" id="stat-correct">0</div><div class="stat-lbl">正解</div></div>
+      <div class="stat wrong"><div class="stat-num" id="stat-wrong">0</div><div class="stat-lbl">間違い</div></div>
+      <div class="stat total"><div class="stat-num" id="stat-miss">0</div><div class="stat-lbl">要復習</div></div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- HOME -->
+  <div class="screen active" id="screen-home">
+    <div class="home-hero">
+      <h2>日本史 確認テスト</h2>
+      <p>問題を見て「わかる」か「わからない」を選んでください。<br>間違えた問題は自動記録され、繰り返し練習できます。</p>
+    </div>
+
+    <div class="section-label" style="margin-top:4px;">クイック出題</div>
+    <div class="mode-grid" style="margin-bottom:16px;">
+      <div class="mode-card" onclick="startMode('all')">
+        <div class="mode-icon">📋</div>
+        <div class="mode-title">全問</div>
+        <div class="mode-desc">全時代から出題</div>
+      </div>
+      <div class="mode-card" onclick="startMode('shuffle')">
+        <div class="mode-icon">🔀</div>
+        <div class="mode-title">ランダム</div>
+        <div class="mode-desc">30問シャッフル</div>
+      </div>
+      <div class="mode-card miss-mode" onclick="startMode('miss')">
+        <div class="mode-icon">📌</div>
+        <div class="mode-title">復習</div>
+        <div class="mode-desc">間違い問題のみ</div>
+        <div class="miss-count-badge" id="miss-badge">0問</div>
+      </div>
+    </div>
+
+    <div class="era-section">
+      <div class="era-header">
+        <h3>📚 時代・単元を選んで出題</h3>
+        <div class="era-select-btns">
+          <button class="era-select-btn" onclick="selectAllEras(true)">全選択</button>
+          <button class="era-select-btn" onclick="selectAllEras(false)">解除</button>
+        </div>
+      </div>
+      <div class="era-list" id="era-list"></div>
+      <button class="start-selected-btn" id="start-selected-btn" onclick="startMode('selected')" disabled>
+        選択した範囲で出題
+      </button>
+    </div>
+
+    <div class="stats-section">
+      <div class="stats-title">📊 時代別 正答率</div>
+      <div id="era-stats-list"></div>
+    </div>
+
+    <div class="section-label">間違えた問題</div>
+    <div class="miss-list" id="home-miss-list">
+      <div class="empty-msg">まだ間違えた問題はありません 🎉</div>
+    </div>
+  </div>
+
+  <!-- QUIZ -->
+  <div class="screen" id="screen-quiz">
+    <button class="back-btn" onclick="goHome()">← ホームへ</button>
+    <div class="quiz-header">
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+      <div class="progress-label" id="progress-label">0/0</div>
+    </div>
+    <div id="quiz-area"></div>
+  </div>
+
+  <!-- RESULT -->
+  <div class="screen" id="screen-result">
+    <button class="back-btn" onclick="goHome()">← ホームへ</button>
+    <div class="result-card">
+      <div style="font-size:36px;margin-bottom:10px;">🎌</div>
+      <div class="result-big" id="res-correct">0</div>
+      <div class="result-denom" id="res-denom">/ 0問 正解</div>
+      <div class="result-msg" id="res-msg"></div>
+      <div class="result-actions">
+        <button class="result-btn primary" onclick="goHome()">ホームに戻る</button>
+        <button class="result-btn miss" id="res-miss-btn" onclick="startMode('miss')" style="display:none">間違えた問題を復習する</button>
+        <button class="result-btn secondary" onclick="retryMode()">もう一度同じセットで</button>
+      </div>
+    </div>
+    <div class="result-era-breakdown" id="result-era-breakdown" style="display:none">
+      <div class="result-era-title">📊 今回の時代別 正答率</div>
+      <div id="result-era-rows"></div>
+    </div>
+  </div>
+</main>
+
+<script src="script.js"></script>
+</body>
+</html>
