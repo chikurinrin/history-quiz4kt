@@ -366,6 +366,96 @@ const allQuestions = [
 ];
 
 // =====================================================
+// DIFFICULTY LEVELS
+// =====================================================
+const QUESTION_LEVELS = {
+  // 縄文・弥生・古墳
+  301:'basic',302:'basic',303:'basic',304:'basic',305:'standard',
+  306:'basic',307:'basic',308:'basic',309:'basic',310:'standard',
+  311:'basic',501:'standard',502:'standard',503:'standard',504:'advanced',
+  601:'standard',602:'standard',603:'standard',604:'standard',605:'advanced',
+  606:'standard',607:'standard',608:'standard',609:'standard',610:'standard',
+  // 飛鳥
+  312:'basic',313:'basic',314:'basic',315:'basic',316:'standard',
+  317:'standard',318:'basic',319:'basic',507:'basic',508:'basic',
+  510:'advanced',611:'standard',612:'advanced',613:'advanced',614:'advanced',
+  615:'standard',616:'standard',617:'standard',
+  // 奈良
+  321:'basic',322:'basic',323:'basic',324:'standard',325:'standard',
+  326:'standard',327:'basic',328:'basic',329:'basic',330:'basic',
+  331:'standard',332:'standard',517:'standard',
+  618:'standard',619:'standard',620:'standard',621:'advanced',622:'advanced',
+  623:'advanced',624:'advanced',625:'advanced',
+  // 平安
+  333:'basic',334:'basic',335:'standard',336:'standard',337:'standard',
+  338:'standard',339:'basic',340:'basic',341:'basic',342:'standard',
+  343:'standard',344:'standard',
+  626:'advanced',627:'standard',628:'advanced',629:'advanced',630:'standard',
+  631:'advanced',632:'basic',633:'advanced',
+  // 鎌倉
+  345:'basic',346:'basic',347:'standard',348:'basic',349:'standard',
+  350:'basic',351:'standard',352:'basic',353:'standard',354:'basic',
+  355:'standard',356:'standard',527:'standard',528:'advanced',532:'advanced',
+  634:'advanced',635:'advanced',636:'advanced',637:'standard',638:'advanced',
+  639:'advanced',640:'standard',641:'advanced',
+  // 室町
+  357:'basic',358:'basic',359:'standard',360:'basic',361:'basic',
+  362:'standard',363:'standard',364:'standard',365:'standard',366:'standard',
+  542:'advanced',543:'standard',642:'standard',643:'advanced',644:'standard',
+  645:'standard',646:'advanced',647:'advanced',648:'advanced',649:'standard',
+  // 安土桃山
+  367:'basic',368:'basic',369:'basic',370:'standard',371:'basic',
+  372:'basic',373:'basic',374:'basic',375:'basic',376:'standard',
+  377:'standard',650:'standard',651:'standard',652:'advanced',653:'standard',
+  654:'standard',655:'advanced',656:'advanced',657:'advanced',
+  // 江戸前期
+  378:'basic',379:'basic',380:'basic',381:'basic',382:'standard',
+  385:'basic',386:'basic',387:'standard',388:'basic',389:'standard',
+  395:'standard',396:'standard',397:'standard',398:'standard',399:'standard',
+  400:'standard',557:'standard',658:'advanced',659:'advanced',660:'advanced',
+  661:'standard',665:'advanced',666:'advanced',
+  // 江戸後期
+  390:'standard',391:'basic',392:'standard',393:'standard',394:'advanced',
+  401:'standard',402:'basic',403:'standard',404:'standard',405:'standard',
+  406:'standard',407:'standard',408:'standard',409:'standard',410:'standard',
+  411:'standard',412:'standard',662:'advanced',663:'basic',664:'standard',
+  // 幕末
+  413:'basic',414:'basic',415:'basic',416:'standard',417:'standard',
+  418:'basic',419:'standard',420:'basic',421:'standard',422:'standard',
+  667:'standard',668:'advanced',669:'advanced',670:'advanced',671:'advanced',
+  672:'standard',673:'advanced',
+  701:'standard',702:'standard',703:'advanced',704:'standard',705:'advanced',
+  706:'advanced',707:'standard',708:'standard',709:'advanced',
+  // 明治前期
+  424:'basic',425:'standard',426:'basic',427:'basic',429:'standard',
+  430:'basic',431:'basic',432:'standard',433:'standard',434:'basic',
+  435:'standard',436:'standard',437:'standard',438:'standard',439:'standard',
+  440:'basic',441:'standard',442:'standard',443:'basic',444:'advanced',
+  445:'standard',446:'standard',
+  674:'standard',675:'standard',676:'advanced',677:'advanced',678:'advanced',
+  679:'advanced',710:'standard',711:'standard',712:'advanced',713:'advanced',
+  714:'advanced',715:'advanced',716:'standard',717:'advanced',
+  // 明治後期
+  448:'basic',449:'basic',450:'standard',451:'standard',452:'basic',
+  453:'basic',454:'standard',455:'standard',456:'standard',457:'basic',
+  458:'standard',459:'standard',461:'standard',462:'standard',463:'basic',
+  464:'basic',465:'standard',466:'standard',467:'standard',
+  680:'advanced',681:'advanced',682:'standard',683:'standard',684:'standard',
+  718:'advanced',719:'advanced',720:'standard',721:'standard',722:'advanced',
+  723:'advanced',724:'advanced',725:'standard',726:'advanced',727:'advanced',
+  728:'standard',729:'advanced',730:'advanced',731:'advanced',732:'advanced',
+  733:'standard',
+};
+
+const LEVEL_LABEL = {basic:'基礎',standard:'標準',advanced:'発展'};
+const LEVEL_COLOR = {basic:'var(--sage)',standard:'var(--gold)',advanced:'var(--vermilion)'};
+
+function levelBadge(id) {
+  const lv = QUESTION_LEVELS[id] || 'standard';
+  return `<span style="color:${LEVEL_COLOR[lv]};font-weight:600;font-size:10px;">[${LEVEL_LABEL[lv]}]</span>`;
+}
+
+// =====================================================
 // ERA ORDER & STATE
 // =====================================================
 const ERA_ORDER = [
@@ -599,6 +689,12 @@ function startMode(mode) {
       return;
     }
     questions = shuffle(questions);
+  } else if (mode === 'level-basic') {
+    questions = shuffle(allQuestions.filter(q => QUESTION_LEVELS[q.id] === 'basic'));
+  } else if (mode === 'level-standard') {
+    questions = shuffle(allQuestions.filter(q => QUESTION_LEVELS[q.id] === 'standard'));
+  } else if (mode === 'level-advanced') {
+    questions = shuffle(allQuestions.filter(q => QUESTION_LEVELS[q.id] === 'advanced'));
   }
 
   quiz.questions = questions;
@@ -634,7 +730,7 @@ function showQuestion() {
 
   document.getElementById('quiz-area').innerHTML = `
     <div class="q-card">
-      <div class="q-category">${q.cat}</div>
+      <div class="q-category">${q.cat} &nbsp;${levelBadge(q.id)}</div>
       <div class="q-text">${q.q}</div>
       <div class="answer-btns">
         <button class="ans-btn know" onclick="answer(true)">
@@ -684,7 +780,7 @@ function showReveal(q, knew) {
 
   document.getElementById('quiz-area').innerHTML = `
     <div class="q-card">
-      <div class="q-category">${q.cat}</div>
+      <div class="q-category">${q.cat} &nbsp;${levelBadge(q.id)}</div>
       <div class="q-text">${q.q}</div>
     </div>
     <div class="reveal-panel">

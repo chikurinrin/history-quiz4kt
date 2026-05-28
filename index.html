@@ -42,6 +42,15 @@ main{max-width:780px;margin:0 auto;padding:20px 12px 80px;position:relative;z-in
 .mode-card:hover{border-color:var(--indigo);transform:translateY(-2px);box-shadow:0 4px 14px var(--shadow);}
 .mode-card.miss-mode{border-color:#e07070;}
 .mode-card.miss-mode:hover{border-color:var(--vermilion);background:rgba(184,50,50,.04);}
+.mode-card.level-basic{border-color:rgba(61,107,79,.4);}
+.mode-card.level-basic:hover{border-color:var(--sage);background:rgba(61,107,79,.05);}
+.mode-card.level-basic .mode-title{color:var(--sage);}
+.mode-card.level-standard{border-color:rgba(184,136,10,.4);}
+.mode-card.level-standard:hover{border-color:var(--gold);background:rgba(184,136,10,.05);}
+.mode-card.level-standard .mode-title{color:var(--gold);}
+.mode-card.level-advanced{border-color:rgba(184,50,50,.4);}
+.mode-card.level-advanced:hover{border-color:var(--vermilion);background:rgba(184,50,50,.05);}
+.mode-card.level-advanced .mode-title{color:var(--vermilion);}
 .mode-icon{font-size:24px;margin-bottom:6px;}
 .mode-title{font-family:'Hiragino Mincho ProN','Yu Mincho','MS Mincho',serif;font-size:13px;font-weight:800;color:var(--indigo);letter-spacing:1px;margin-bottom:3px;}
 .mode-desc{font-size:10px;color:var(--muted);line-height:1.4;}
@@ -189,6 +198,25 @@ main{max-width:780px;margin:0 auto;padding:20px 12px 80px;position:relative;z-in
         <div class="mode-title">復習</div>
         <div class="mode-desc">間違い問題のみ</div>
         <div class="miss-count-badge" id="miss-badge">0問</div>
+      </div>
+    </div>
+
+    <div class="section-label" style="margin-top:4px;">難易度別に出題</div>
+    <div class="mode-grid" style="margin-bottom:20px;">
+      <div class="mode-card level-basic" onclick="startMode('level-basic')">
+        <div class="mode-icon">⭐</div>
+        <div class="mode-title">基礎</div>
+        <div class="mode-desc">都立標準レベル</div>
+      </div>
+      <div class="mode-card level-standard" onclick="startMode('level-standard')">
+        <div class="mode-icon">⭐⭐</div>
+        <div class="mode-title">標準</div>
+        <div class="mode-desc">都立上位レベル</div>
+      </div>
+      <div class="mode-card level-advanced" onclick="startMode('level-advanced')">
+        <div class="mode-icon">⭐⭐⭐</div>
+        <div class="mode-title">発展</div>
+        <div class="mode-desc">難関私立レベル</div>
       </div>
     </div>
 
