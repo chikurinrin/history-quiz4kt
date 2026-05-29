@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>漢字学習 – 都立高校入試対策</title>
+  <style>
+    :root {
+      --indigo:    #2c3e7a;
+      --indigo-lt: #3d5096;
+      --vermilion: #b83232;
+      --gold:      #b8880a;
+      --sage:      #3d6b4f;
+      --cream:     #faf6ee;
+      --paper:     #f3ede0;
+      --border:    #d8cdb8;
+      --text:      #2a2218;
+      --text-lt:   #6b5e4a;
+      --shadow:    rgba(44,62,122,.12);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Hiragino Mincho ProN', 'Yu Mincho', 'Noto Serif JP', serif;
+      background: var(--cream);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--indigo);
+      color: #fff;
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 52px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 8px var(--shadow);
+    }
+
+    .header-title {
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: .08em;
+    }
+
+    .header-stats {
+      display: flex;
+      gap: 16px;
+      font-size: 12px;
+    }
+
+    .header-stat {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1px;
+    }
+
+    .header-stat .label { opacity: .7; font-size: 10px; }
+    .header-stat .val   { font-weight: 700; font-size: 15px; }
+    .stat-correct .val  { color: #7eca9c; }
+    .stat-wrong .val    { color: #f49696; }
+    .stat-miss .val     { color: #f5c86a; }
+
+    /* ── Screens ── */
+    .screen { display: none; }
+    .screen.active { display: block; }
+
+    /* ── Home ── */
+    #screen-home {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 24px 16px 40px;
+    }
+
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--indigo);
+      letter-spacing: .1em;
+      margin-bottom: 12px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid var(--indigo);
+    }
+
+    .section { margin-bottom: 28px; }
+
+    /* mode cards grid */
+    .mode-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 10px;
+    }
+
+    .mode-card {
+      background: #fff;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 12px;
+      cursor: pointer;
+      transition: border-color .15s, box-shadow .15s, transform .1s;
+      text-align: center;
+      user-select: none;
+    }
+
+    .mode-card:hover {
+      box-shadow: 0 4px 14px var(--shadow);
+      transform: translateY(-2px);
+    }
+
+    .mode-card .card-icon { font-size: 24px; margin-bottom: 6px; }
+    .mode-card .card-name { font-size: 13px; font-weight: 700; color: var(--indigo); }
+    .mode-card .card-sub  { font-size: 11px; color: var(--text-lt); margin-top: 3px; }
+
+    .mode-card.read   { border-color: rgba(44,62,122,.35); }
+    .mode-card.write  { border-color: rgba(184,50,50,.35); }
+    .mode-card.shuffle{ border-color: rgba(184,136,10,.35); }
+    .mode-card.miss   { border-color: rgba(61,107,79,.35); }
+    .mode-card.level-basic    { border-color: rgba(61,107,79,.4); }
+    .mode-card.level-standard { border-color: rgba(184,136,10,.4); }
+    .mode-card.level-advanced { border-color: rgba(184,50,50,.4); }
+
+    /* stats bars */
+    .stat-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      font-size: 12px;
+    }
+
+    .stat-name { width: 64px; flex-shrink: 0; color: var(--text-lt); }
+    .stat-bar-wrap { flex: 1; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+    .stat-bar { height: 100%; border-radius: 4px; transition: width .4s; }
+    .stat-pct { width: 36px; text-align: right; font-weight: 700; }
+    .stat-detail { width: 48px; text-align: right; color: var(--text-lt); }
+
+    /* miss list */
+    .miss-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .miss-badge {
+      background: var(--vermilion);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      border-radius: 12px;
+      padding: 2px 8px;
+    }
+
+    .miss-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 6px;
+    }
+
+    .miss-item {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+    }
+
+    .miss-item-q { font-size: 11px; color: var(--text-lt); margin-bottom: 2px; }
+    .miss-item-a { font-size: 14px; font-weight: 700; color: var(--vermilion); }
+
+    .empty-msg {
+      color: var(--text-lt);
+      font-size: 12px;
+      text-align: center;
+      padding: 16px 0;
+    }
+
+    /* ── Quiz Screen ── */
+    #screen-quiz {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 0 16px 40px;
+    }
+
+    .progress-bar-wrap {
+      height: 4px;
+      background: var(--border);
+      margin-bottom: 0;
+      position: relative;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--indigo);
+      transition: width .3s;
+    }
+
+    .progress-label-row {
+      display: flex;
+      justify-content: flex-end;
+      padding: 6px 0 16px;
+      font-size: 11px;
+      color: var(--text-lt);
+    }
+
+    /* Q card */
+    .q-card {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px 20px 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 8px var(--shadow);
+    }
+
+    .q-category {
+      font-size: 11px;
+      color: var(--text-lt);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .q-prompt {
+      font-size: 14px;
+      color: var(--indigo);
+      font-weight: 700;
+      margin-bottom: 14px;
+      letter-spacing: .04em;
+    }
+
+    .q-sentence {
+      font-size: 20px;
+      line-height: 1.8;
+      letter-spacing: .06em;
+      color: var(--text);
+    }
+
+    .target-word {
+      color: var(--indigo);
+      font-weight: 900;
+      border-bottom: 2px solid var(--indigo);
+      padding-bottom: 1px;
+    }
+
+    .target-reading {
+      color: var(--vermilion);
+      font-weight: 700;
+    }
+
+    /* answer buttons */
+    .answer-btns {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    .ans-btn {
+      border: none;
+      border-radius: 10px;
+      padding: 14px;
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: opacity .15s, transform .1s;
+      letter-spacing: .04em;
+    }
+
+    .ans-btn:hover { opacity: .88; transform: translateY(-1px); }
+    .ans-btn .btn-icon { font-size: 18px; }
+    .ans-btn.know     { background: var(--sage); color: #fff; }
+    .ans-btn.dontknow { background: var(--vermilion); color: #fff; }
+
+    /* reveal panel */
+    .reveal-panel {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 14px;
+      box-shadow: 0 2px 8px var(--shadow);
+    }
+
+    .reveal-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+    }
+
+    .correct-header { background: rgba(61,107,79,.12); }
+    .wrong-header   { background: rgba(184,50,50,.1); }
+    .reveal-mark    { font-size: 20px; }
+    .reveal-status  { font-size: 15px; font-weight: 700; }
+    .correct-header .reveal-status { color: var(--sage); }
+    .wrong-header   .reveal-status { color: var(--vermilion); }
+
+    .reveal-body {
+      padding: 16px 20px 20px;
+    }
+
+    .answer-label {
+      font-size: 11px;
+      color: var(--text-lt);
+      margin-bottom: 4px;
+      letter-spacing: .06em;
+    }
+
+    .answer-text {
+      font-size: 28px;
+      font-weight: 900;
+      color: var(--indigo);
+      letter-spacing: .1em;
+      margin-bottom: 14px;
+    }
+
+    .kanji-info {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .kanji-big   { font-size: 36px; font-weight: 900; color: var(--text); }
+    .reading-small { font-size: 16px; color: var(--text-lt); }
+
+    .explanation {
+      font-size: 12px;
+      color: var(--text-lt);
+      line-height: 1.6;
+      padding: 8px 10px;
+      background: var(--paper);
+      border-radius: 6px;
+    }
+
+    .revise-btn {
+      width: 100%;
+      background: none;
+      border: 1px solid var(--sage);
+      color: var(--sage);
+      border-radius: 8px;
+      padding: 10px;
+      font-family: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      margin-bottom: 10px;
+      transition: background .15s, color .15s;
+    }
+
+    .revise-btn:hover:not(:disabled) {
+      background: var(--sage);
+      color: #fff;
+    }
+
+    .next-btn {
+      width: 100%;
+      background: var(--indigo);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 14px;
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: .06em;
+      transition: opacity .15s;
+    }
+
+    .next-btn:hover { opacity: .88; }
+
+    /* ── Result Screen ── */
+    #screen-result {
+      max-width: 500px;
+      margin: 0 auto;
+      padding: 40px 16px 60px;
+      text-align: center;
+    }
+
+    .result-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--indigo);
+      margin-bottom: 28px;
+      letter-spacing: .1em;
+    }
+
+    .result-score-wrap {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px 20px 28px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 10px var(--shadow);
+    }
+
+    .result-big {
+      font-size: 72px;
+      font-weight: 900;
+      color: var(--indigo);
+      line-height: 1;
+    }
+
+    .result-denom {
+      font-size: 16px;
+      color: var(--text-lt);
+      margin-top: 6px;
+      margin-bottom: 16px;
+    }
+
+    .result-msg {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .result-btns {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .result-btn {
+      width: 100%;
+      border-radius: 10px;
+      padding: 14px;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: .04em;
+      transition: opacity .15s;
+    }
+
+    .result-btn:hover { opacity: .88; }
+    .result-btn.primary { background: var(--indigo); color: #fff; border: none; }
+    .result-btn.secondary { background: #fff; color: var(--indigo); border: 2px solid var(--indigo); }
+    .result-btn.miss { background: var(--vermilion); color: #fff; border: none; }
+
+    /* ── Back link ── */
+    .back-link {
+      display: inline-block;
+      color: var(--text-lt);
+      font-size: 12px;
+      text-decoration: none;
+      margin-bottom: 16px;
+      padding: 4px 0;
+    }
+
+    .back-link:hover { color: var(--indigo); }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="header-title">漢字学習</div>
+    <div class="header-stats">
+      <div class="header-stat stat-correct">
+        <span class="val" id="stat-correct">0</span>
+        <span class="label">正解</span>
+      </div>
+      <div class="header-stat stat-wrong">
+        <span class="val" id="stat-wrong">0</span>
+        <span class="label">不正解</span>
+      </div>
+      <div class="header-stat stat-miss">
+        <span class="val" id="stat-miss">0</span>
+        <span class="label">復習</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ══════════════════════════════════════════ HOME -->
+  <div id="screen-home" class="screen">
+
+    <section>
+      <a href="../../index.html" class="back-link">← ツール一覧に戻る</a>
+
+      <!-- 出題モード -->
+      <div class="section">
+        <div class="section-title">出題モード</div>
+        <div class="mode-grid">
+          <div class="mode-card read" onclick="startMode('all-read')">
+            <div class="card-icon">📖</div>
+            <div class="card-name">読み問題</div>
+            <div class="card-sub">漢字の読み方</div>
+          </div>
+          <div class="mode-card write" onclick="startMode('all-write')">
+            <div class="card-icon">✏️</div>
+            <div class="card-name">書き問題</div>
+            <div class="card-sub">漢字を書く</div>
+          </div>
+          <div class="mode-card shuffle" onclick="startMode('shuffle')">
+            <div class="card-icon">🔀</div>
+            <div class="card-name">ランダム</div>
+            <div class="card-sub">読み＋書き混合 30問</div>
+          </div>
+          <div class="mode-card miss" onclick="startMode('miss')">
+            <div class="card-icon">📝</div>
+            <div class="card-name">復習モード</div>
+            <div class="card-sub">間違えた問題だけ</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 難易度別 -->
+      <div class="section">
+        <div class="section-title">難易度別に出題</div>
+        <div class="mode-grid">
+          <div class="mode-card level-basic" onclick="startMode('level-basic')">
+            <div class="card-icon">⭐</div>
+            <div class="card-name">基礎</div>
+            <div class="card-sub">共通問題レベル</div>
+          </div>
+          <div class="mode-card level-standard" onclick="startMode('level-standard')">
+            <div class="card-icon">⭐⭐</div>
+            <div class="card-name">標準</div>
+            <div class="card-sub">都立上位校レベル</div>
+          </div>
+          <div class="mode-card level-advanced" onclick="startMode('level-advanced')">
+            <div class="card-icon">⭐⭐⭐</div>
+            <div class="card-name">発展</div>
+            <div class="card-sub">独自問題・難関校</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 正解率 -->
+      <div class="section">
+        <div class="section-title">正解率</div>
+        <div id="type-stats-list"></div>
+      </div>
+
+      <!-- 復習リスト -->
+      <div class="section">
+        <div class="miss-section-header">
+          <div class="section-title" style="margin-bottom:0;border-bottom:none;">復習リスト</div>
+          <span class="miss-badge" id="miss-badge">0問</span>
+        </div>
+        <div class="miss-list" id="home-miss-list"></div>
+      </div>
+
+    </section>
+  </div>
+
+  <!-- ══════════════════════════════════════════ QUIZ -->
+  <div id="screen-quiz" class="screen">
+    <div class="progress-bar-wrap">
+      <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+    </div>
+    <div style="max-width:600px;margin:0 auto;padding:0 16px;">
+      <div class="progress-label-row">
+        <span id="progress-label">1/1</span>
+      </div>
+      <div id="quiz-area"></div>
+      <button class="back-link" onclick="goHome()" style="background:none;border:none;cursor:pointer;font-family:inherit;">← ホームに戻る</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════ RESULT -->
+  <div id="screen-result" class="screen">
+    <div class="result-title">結果</div>
+    <div class="result-score-wrap">
+      <div class="result-big" id="result-big">0</div>
+      <div class="result-denom" id="result-denom">/ 0 問正解</div>
+      <div class="result-msg" id="result-msg"></div>
+    </div>
+    <div class="result-btns">
+      <button class="result-btn primary" onclick="retryMode()">もう一度</button>
+      <button class="result-btn miss" id="result-miss-btn" onclick="startMode('miss')" style="display:none;">復習モードで練習する</button>
+      <button class="result-btn secondary" onclick="goHome()">ホームに戻る</button>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
