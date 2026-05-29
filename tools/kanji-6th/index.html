@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>6年生の漢字 – 小学生かんじドリル</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <header>
+    <a href="../../index.html" class="back-link">← 一覧へ</a>
+    <div class="header-title">🏫 6年生の漢字</div>
+    <div style="width:60px"></div>
+  </header>
+
+  <!-- ══════════════════════════════ HOME -->
+  <div id="screen-home" class="screen">
+    <div id="screen-home-inner">
+      <p class="home-sub" style="margin-top:20px;">全部で何問できるかな？</p>
+      <p class="miss-empty-msg" id="miss-empty-msg">まだ苦手な漢字がありません！先に練習しよう！</p>
+
+      <div class="mode-grid">
+        <button class="mode-btn mode-read"   onclick="startQuiz('read')">
+          <span class="mode-icon">📖</span>
+          <span class="mode-name">読み問題</span>
+          <span class="mode-desc">漢字の読みを選ぼう</span>
+        </button>
+        <button class="mode-btn mode-write"  onclick="startQuiz('write')">
+          <span class="mode-icon">✏️</span>
+          <span class="mode-name">書き問題</span>
+          <span class="mode-desc">正しい漢字を選ぼう</span>
+        </button>
+        <button class="mode-btn mode-random" onclick="startQuiz('random')">
+          <span class="mode-icon">🎲</span>
+          <span class="mode-name">ランダム</span>
+          <span class="mode-desc">読み＋書き混合</span>
+        </button>
+        <button class="mode-btn mode-review" onclick="startQuiz('review')">
+          <span class="mode-icon">📝</span>
+          <span class="mode-name">苦手を練習</span>
+          <span class="mode-desc">間違えた問題だけ</span>
+        </button>
+      </div>
+
+      <div class="home-stats">
+        <div class="stat-item">
+          <div class="stat-val" id="home-total">0</div>
+          <div class="stat-label">問チャレンジ</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-val" id="home-correct">–</div>
+          <div class="stat-label">正解率</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-val" id="home-miss">0</div>
+          <div class="stat-label">苦手漢字</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════ QUIZ -->
+  <div id="screen-quiz" class="screen">
+    <div class="quiz-top">
+      <div class="progress-wrap">
+        <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+      </div>
+      <div class="quiz-count" id="quiz-count">1 / 15</div>
+    </div>
+
+    <div class="q-card">
+      <div class="q-type-badge" id="q-type-badge">📖 読み問題</div>
+      <div class="q-sentence"   id="q-sentence"></div>
+      <div class="q-prompt"     id="q-prompt"></div>
+    </div>
+
+    <div class="choices-grid" id="choices-grid"></div>
+
+    <div class="feedback-panel hidden" id="feedback-panel">
+      <div class="feedback-mark"    id="feedback-mark"></div>
+      <div class="feedback-text"    id="feedback-text"></div>
+      <div class="feedback-meaning" id="feedback-meaning"></div>
+      <button class="next-btn" id="next-btn" onclick="nextQuestion()">次の問題 →</button>
+    </div>
+
+    <button class="back-link" onclick="goHome()"
+      style="margin-top:16px;border:none;cursor:pointer;font-family:inherit;background:transparent;display:block;color:#7F8C8D;">
+      ← ホームに戻る
+    </button>
+  </div>
+
+  <!-- ══════════════════════════════ RESULT -->
+  <div id="screen-result" class="screen">
+    <div class="result-emoji" id="result-emoji">🎉</div>
+
+    <div class="result-score">
+      <span class="score-num"   id="score-num">0</span>
+      <span class="score-denom" id="score-denom">/ 15 問正解</span>
+    </div>
+
+    <div class="result-star" id="result-star">⭐⭐⭐</div>
+    <div class="result-msg"  id="result-msg">すばらしい！</div>
+
+    <div class="miss-section" id="miss-section" style="display:none;">
+      <div class="miss-title">もう一度確認しよう！</div>
+      <div class="miss-list" id="miss-list"></div>
+    </div>
+
+    <div class="result-btns">
+      <button class="result-btn primary"   onclick="retryQuiz()">もう一度</button>
+      <button class="result-btn review"    id="result-review-btn"
+              onclick="startQuiz('review')" style="display:none;">苦手を練習する</button>
+      <button class="result-btn secondary" onclick="goHome()">ホームへ</button>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
