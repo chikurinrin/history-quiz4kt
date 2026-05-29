@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>理科 高校入試対策</title>
+<style>
+:root {
+  --bg:#f0f4f8; --paper:#fff; --ink:#1a2332;
+  --primary:#1b4f8a;
+  --physics:#1b4f8a;
+  --chemistry:#276a3f;
+  --biology:#0b7472;
+  --earth:#b56a00;
+  --danger:#c0392b; --warn:#d68910;
+  --muted:#6b7a8d;
+  --border:rgba(26,35,50,.12); --shadow:rgba(26,35,50,.08);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Meiryo',sans-serif;color:var(--ink);min-height:100vh;}
+
+/* ── header ── */
+header{background:var(--primary);color:#fff;position:sticky;top:0;z-index:100;border-bottom:3px solid #6fa3d8;}
+.header-inner{max-width:800px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:52px;padding:0 16px;}
+.header-title{font-size:15px;font-weight:800;letter-spacing:2px;}
+.header-title span{font-size:10px;opacity:.7;display:block;font-weight:400;letter-spacing:1px;}
+.header-stats{display:flex;gap:14px;}
+.stat{text-align:center;}
+.stat-num{font-size:18px;font-weight:800;line-height:1;}
+.stat-lbl{font-size:9px;letter-spacing:1px;opacity:.7;}
+.stat.correct .stat-num{color:#7ecba1;}
+.stat.wrong .stat-num{color:#f08080;}
+.stat.miss .stat-num{color:#ffd97a;}
+
+/* ── layout ── */
+main{max-width:800px;margin:0 auto;padding:16px 12px 80px;position:relative;}
+.screen{display:none;}
+.screen.active{display:block;animation:fadeIn .25s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── home: hero ── */
+.home-hero{text-align:center;padding:24px 16px 20px;background:var(--paper);border:1px solid var(--border);border-radius:8px;margin-bottom:14px;box-shadow:0 2px 10px var(--shadow);}
+.home-hero h2{font-size:20px;font-weight:800;color:var(--primary);letter-spacing:3px;margin-bottom:6px;}
+.home-hero p{font-size:12px;color:var(--muted);line-height:1.7;}
+
+/* ── section label ── */
+.section-label{font-size:10px;letter-spacing:3px;color:var(--muted);border-bottom:1px solid var(--border);padding-bottom:5px;margin-bottom:10px;font-weight:600;}
+
+/* ── subject tabs ── */
+.subject-tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
+.subject-tab{padding:6px 14px;border:2px solid var(--border);border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;background:var(--paper);color:var(--muted);transition:all .15s;}
+.subject-tab[data-subject="all"].active{border-color:var(--primary);background:var(--primary);color:#fff;}
+.subject-tab[data-subject="physics"].active{border-color:var(--physics);background:var(--physics);color:#fff;}
+.subject-tab[data-subject="chemistry"].active{border-color:var(--chemistry);background:var(--chemistry);color:#fff;}
+.subject-tab[data-subject="biology"].active{border-color:var(--biology);background:var(--biology);color:#fff;}
+.subject-tab[data-subject="earthscience"].active{border-color:var(--earth);background:var(--earth);color:#fff;}
+
+/* ── mode grid ── */
+.mode-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;}
+.mode-card{padding:14px 8px;background:var(--paper);border:2px solid var(--border);border-radius:8px;cursor:pointer;text-align:center;transition:all .2s;}
+.mode-card:hover{transform:translateY(-2px);box-shadow:0 4px 14px var(--shadow);}
+.mode-card.miss-mode{border-color:rgba(192,57,43,.35);}
+.mode-card.miss-mode:hover{border-color:var(--danger);background:rgba(192,57,43,.04);}
+.mode-card.level-basic{border-color:rgba(39,106,63,.35);}
+.mode-card.level-basic:hover{border-color:var(--chemistry);}
+.mode-card.level-standard{border-color:rgba(181,106,0,.35);}
+.mode-card.level-standard:hover{border-color:var(--earth);}
+.mode-card.level-advanced{border-color:rgba(192,57,43,.35);}
+.mode-card.level-advanced:hover{border-color:var(--danger);}
+.mode-icon{font-size:22px;margin-bottom:5px;}
+.mode-title{font-size:13px;font-weight:800;color:var(--ink);letter-spacing:1px;margin-bottom:2px;}
+.mode-card.level-basic .mode-title{color:var(--chemistry);}
+.mode-card.level-standard .mode-title{color:var(--earth);}
+.mode-card.level-advanced .mode-title{color:var(--danger);}
+.mode-desc{font-size:10px;color:var(--muted);line-height:1.4;}
+.miss-count-badge{display:inline-block;background:var(--danger);color:#fff;font-size:10px;font-weight:600;border-radius:10px;padding:1px 7px;margin-top:3px;}
+
+/* ── unit selection ── */
+.unit-section{background:var(--paper);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px;box-shadow:0 2px 8px var(--shadow);}
+.unit-section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.unit-section-header h3{font-size:13px;font-weight:800;color:var(--primary);letter-spacing:1px;}
+.unit-select-btns{display:flex;gap:5px;}
+.unit-select-btn{padding:4px 10px;border:1px solid var(--border);background:var(--bg);border-radius:12px;font-size:11px;cursor:pointer;color:var(--muted);transition:all .15s;}
+.unit-select-btn:hover{border-color:var(--primary);color:var(--primary);}
+.unit-list{display:grid;grid-template-columns:repeat(2,1fr);gap:5px;}
+.unit-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:6px;cursor:pointer;transition:all .15s;background:var(--bg);}
+.unit-item:hover{border-color:var(--primary);}
+.unit-item.selected{border-color:var(--primary);background:rgba(27,79,138,.06);}
+.unit-cb{width:16px;height:16px;border:2px solid var(--border);border-radius:3px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;color:#fff;transition:all .15s;}
+.unit-item.selected .unit-cb{background:var(--primary);border-color:var(--primary);}
+.unit-info{flex:1;min-width:0;}
+.unit-name{font-size:12px;font-weight:500;display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
+.unit-count{font-size:10px;color:var(--muted);margin-top:1px;}
+.subject-tag{font-size:9px;color:#fff;padding:1px 6px;border-radius:3px;font-weight:600;flex-shrink:0;}
+.start-selected-btn{width:100%;margin-top:10px;padding:11px;background:var(--primary);color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;letter-spacing:2px;cursor:pointer;transition:all .2s;}
+.start-selected-btn:hover{opacity:.88;}
+.start-selected-btn:disabled{opacity:.35;cursor:not-allowed;}
+
+/* ── stats ── */
+.stats-section{background:var(--paper);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px;box-shadow:0 2px 8px var(--shadow);}
+.stats-title{font-size:12px;font-weight:800;color:var(--primary);letter-spacing:2px;margin-bottom:10px;}
+.stat-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
+.stat-subject{font-size:12px;color:var(--ink);width:36px;flex-shrink:0;}
+.stat-bar-wrap{flex:1;height:10px;background:rgba(26,35,50,.08);border-radius:5px;overflow:hidden;}
+.stat-bar{height:100%;border-radius:5px;transition:width .5s ease;}
+.stat-pct{font-size:11px;font-weight:700;width:32px;text-align:right;flex-shrink:0;}
+.stat-detail{font-size:10px;color:var(--muted);width:42px;text-align:right;flex-shrink:0;}
+
+/* ── miss list home ── */
+.miss-list-wrap{background:var(--paper);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px;box-shadow:0 2px 8px var(--shadow);}
+.miss-list{display:flex;flex-direction:column;gap:5px;margin-top:8px;}
+.miss-item{background:var(--bg);border:1px solid var(--border);border-left:3px solid var(--danger);border-radius:4px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;gap:8px;}
+.miss-item-q{font-size:12px;color:var(--ink);flex:1;line-height:1.5;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.miss-item-unit{font-size:10px;color:var(--muted);white-space:nowrap;}
+.empty-msg{text-align:center;padding:20px;color:var(--muted);font-size:13px;}
+
+/* ── quiz screen ── */
+.back-btn{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--muted);font-size:12px;cursor:pointer;transition:all .2s;margin-bottom:12px;}
+.back-btn:hover{color:var(--primary);border-color:var(--primary);}
+.quiz-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.progress-bar{flex:1;height:5px;background:rgba(26,35,50,.1);border-radius:3px;overflow:hidden;}
+.progress-fill{height:100%;background:linear-gradient(to right,var(--physics),var(--chemistry));border-radius:3px;transition:width .4s ease;}
+.progress-label{font-size:12px;font-weight:600;color:var(--primary);white-space:nowrap;}
+
+.q-card{background:var(--paper);border:1px solid var(--border);border-radius:8px;padding:20px 18px;box-shadow:0 2px 12px var(--shadow);margin-bottom:12px;position:relative;overflow:hidden;}
+.q-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(to right,var(--physics),var(--chemistry),var(--biology),var(--earth));}
+.q-meta{display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap;}
+.q-subject-tag{font-size:10px;color:#fff;padding:2px 8px;border-radius:3px;font-weight:600;}
+.q-unit{font-size:11px;color:var(--muted);}
+.q-level{font-size:10px;padding:1px 6px;border-radius:3px;font-weight:600;}
+.q-level.level-basic{background:rgba(39,106,63,.12);color:var(--chemistry);}
+.q-level.level-standard{background:rgba(181,106,0,.12);color:var(--earth);}
+.q-level.level-advanced{background:rgba(192,57,43,.12);color:var(--danger);}
+.q-text{font-size:16px;font-weight:600;line-height:1.8;color:var(--primary);letter-spacing:.3px;}
+
+/* ── mc options ── */
+.mc-options{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;}
+.mc-btn{padding:13px 10px;border:2px solid var(--border);border-radius:6px;background:var(--paper);cursor:pointer;font-size:13px;font-weight:500;line-height:1.4;text-align:left;transition:all .2s;color:var(--ink);}
+.mc-btn:hover:not(:disabled){border-color:var(--primary);background:rgba(27,79,138,.04);}
+.mc-btn.correct{border-color:var(--chemistry);background:rgba(39,106,63,.1);color:var(--chemistry);}
+.mc-btn.wrong{border-color:var(--danger);background:rgba(192,57,43,.08);color:var(--danger);}
+.mc-btn:disabled{cursor:not-allowed;}
+
+/* ── qa ── */
+.reveal-btn{width:100%;padding:14px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;letter-spacing:2px;cursor:pointer;margin-top:4px;transition:all .2s;}
+.reveal-btn:hover{opacity:.88;}
+.answer-box{background:var(--paper);border:1px solid var(--border);border-radius:8px;padding:16px 18px;margin-top:8px;box-shadow:0 2px 8px var(--shadow);}
+.answer-label{font-size:9px;letter-spacing:3px;color:var(--muted);margin-bottom:6px;font-weight:600;}
+.answer-text{font-size:16px;font-weight:700;color:var(--primary);line-height:1.7;padding:10px 14px;background:rgba(27,79,138,.05);border-left:3px solid var(--primary);border-radius:2px;margin-bottom:10px;}
+.explanation{font-size:13px;line-height:1.8;color:#444;}
+.self-check{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;}
+.self-btn{padding:13px;border:2px solid;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;letter-spacing:1px;}
+.self-btn.know{border-color:var(--chemistry);color:var(--chemistry);background:transparent;}
+.self-btn.know:hover{background:rgba(39,106,63,.08);}
+.self-btn.dontknow{border-color:var(--danger);color:var(--danger);background:transparent;}
+.self-btn.dontknow:hover{background:rgba(192,57,43,.06);}
+
+/* ── reveal panel ── */
+.reveal-panel{background:var(--paper);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-top:10px;box-shadow:0 2px 12px var(--shadow);animation:slideIn .25s ease;}
+@keyframes slideIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+.reveal-header{padding:10px 16px;display:flex;align-items:center;gap:10px;}
+.correct-header{background:rgba(39,106,63,.07);border-bottom:2px solid var(--chemistry);}
+.wrong-header{background:rgba(192,57,43,.05);border-bottom:2px solid var(--danger);}
+.reveal-mark{font-size:22px;}
+.reveal-status{font-size:14px;font-weight:800;letter-spacing:1px;}
+.correct-header .reveal-status{color:var(--chemistry);}
+.wrong-header .reveal-status{color:var(--danger);}
+.reveal-body{padding:12px 16px;}
+.reveal-actions{padding:10px 16px 14px;display:flex;flex-direction:column;gap:7px;}
+.revise-btn{width:100%;padding:10px;background:rgba(192,57,43,.06);color:var(--danger);border:2px dashed var(--danger);border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;transition:all .2s;}
+.revise-btn:hover{background:rgba(192,57,43,.12);}
+.next-btn{width:100%;padding:12px;background:var(--primary);color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:700;letter-spacing:2px;cursor:pointer;transition:all .2s;}
+.next-btn:hover{opacity:.88;}
+
+/* ── result screen ── */
+.result-card{background:var(--paper);border:1px solid var(--border);border-radius:8px;padding:28px 20px;text-align:center;box-shadow:0 2px 12px var(--shadow);margin-bottom:14px;}
+.result-icon{font-size:36px;margin-bottom:8px;}
+.result-big{font-size:64px;font-weight:900;line-height:1;color:var(--primary);}
+.result-denom{font-size:14px;color:var(--primary);margin:5px 0 16px;letter-spacing:1px;font-weight:600;}
+.result-msg{font-size:14px;line-height:1.7;color:var(--ink);margin-bottom:20px;}
+.result-actions{display:flex;flex-direction:column;gap:7px;}
+.result-btn{padding:12px;border-radius:6px;font-size:14px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:all .2s;border:2px solid;}
+.result-btn.primary{background:var(--primary);color:#fff;border-color:var(--primary);}
+.result-btn.primary:hover{opacity:.88;}
+.result-btn.secondary{background:transparent;color:var(--primary);border-color:var(--primary);}
+.result-btn.secondary:hover{background:var(--primary);color:#fff;}
+.result-btn.miss{background:var(--danger);color:#fff;border-color:var(--danger);}
+.result-btn.miss:hover{opacity:.85;}
+
+.result-breakdown{background:var(--paper);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px;box-shadow:0 2px 8px var(--shadow);}
+.result-breakdown-title{font-size:12px;font-weight:800;color:var(--primary);letter-spacing:2px;margin-bottom:12px;}
+.result-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.result-row-name{font-size:12px;color:var(--ink);width:36px;flex-shrink:0;}
+.result-bar-wrap{flex:1;height:12px;background:rgba(26,35,50,.08);border-radius:6px;overflow:hidden;}
+.result-bar{height:100%;border-radius:6px;transition:width .6s ease;}
+.result-row-pct{font-size:11px;font-weight:700;width:32px;text-align:right;}
+.result-row-detail{font-size:10px;color:var(--muted);width:38px;text-align:right;}
+
+@media(max-width:520px){
+  .mode-grid{grid-template-columns:repeat(3,1fr);}
+  .unit-list{grid-template-columns:1fr;}
+  .mc-options{grid-template-columns:1fr;}
+  .q-text{font-size:15px;}
+  .result-big{font-size:50px;}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="header-title">
+      <span>中学理科 · 高校入試対策</span>
+      理科 総合演習
+    </div>
+    <div class="header-stats">
+      <div class="stat correct"><div class="stat-num" id="stat-correct">0</div><div class="stat-lbl">正解</div></div>
+      <div class="stat wrong"><div class="stat-num" id="stat-wrong">0</div><div class="stat-lbl">間違い</div></div>
+      <div class="stat miss"><div class="stat-num" id="stat-miss">0</div><div class="stat-lbl">要復習</div></div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- ═══ HOME ═══ -->
+  <div class="screen active" id="screen-home">
+    <div class="home-hero">
+      <h2>理科 確認テスト</h2>
+      <p>物理・化学・生物・地学の頻出問題を網羅。<br>間違えた問題は自動記録され、繰り返し練習できます。</p>
+    </div>
+
+    <div class="section-label">科目フィルター</div>
+    <div class="subject-tabs">
+      <div class="subject-tab active" data-subject="all">全科目</div>
+      <div class="subject-tab" data-subject="physics">物理</div>
+      <div class="subject-tab" data-subject="chemistry">化学</div>
+      <div class="subject-tab" data-subject="biology">生物</div>
+      <div class="subject-tab" data-subject="earthscience">地学</div>
+    </div>
+
+    <div class="section-label">クイック出題</div>
+    <div class="mode-grid">
+      <div class="mode-card" onclick="startMode('all')">
+        <div class="mode-icon">📋</div>
+        <div class="mode-title">全問</div>
+        <div class="mode-desc">全問題を出題</div>
+      </div>
+      <div class="mode-card" onclick="startMode('shuffle')">
+        <div class="mode-icon">🔀</div>
+        <div class="mode-title">ランダム</div>
+        <div class="mode-desc">30問シャッフル</div>
+      </div>
+      <div class="mode-card miss-mode" onclick="startMode('miss')">
+        <div class="mode-icon">📌</div>
+        <div class="mode-title">復習</div>
+        <div class="mode-desc">間違い問題のみ</div>
+        <div class="miss-count-badge" id="miss-badge">0問</div>
+      </div>
+    </div>
+
+    <div class="section-label">難易度別出題</div>
+    <div class="mode-grid">
+      <div class="mode-card level-basic" onclick="startMode('basic')">
+        <div class="mode-icon">⭐</div>
+        <div class="mode-title">基礎</div>
+        <div class="mode-desc">基本事項の確認</div>
+      </div>
+      <div class="mode-card level-standard" onclick="startMode('standard')">
+        <div class="mode-icon">⭐⭐</div>
+        <div class="mode-title">標準</div>
+        <div class="mode-desc">都立上位レベル</div>
+      </div>
+      <div class="mode-card level-advanced" onclick="startMode('advanced')">
+        <div class="mode-icon">⭐⭐⭐</div>
+        <div class="mode-title">発展</div>
+        <div class="mode-desc">難関私立レベル</div>
+      </div>
+    </div>
+
+    <div class="unit-section">
+      <div class="unit-section-header">
+        <h3>📚 単元を選んで出題</h3>
+        <div class="unit-select-btns">
+          <button class="unit-select-btn" onclick="selectAllUnits(true)">全選択</button>
+          <button class="unit-select-btn" onclick="selectAllUnits(false)">解除</button>
+        </div>
+      </div>
+      <div class="unit-list" id="unit-list"></div>
+      <button class="start-selected-btn" id="start-selected-btn" onclick="startMode('selected')" disabled>
+        選択した単元で出題
+      </button>
+    </div>
+
+    <div class="stats-section">
+      <div class="stats-title">📊 科目別 正答率</div>
+      <div id="stats-list"></div>
+    </div>
+
+    <div class="miss-list-wrap">
+      <div class="section-label" style="border:none;margin-bottom:0">間違えた問題</div>
+      <div class="miss-list" id="miss-list-home"></div>
+    </div>
+  </div>
+
+  <!-- ═══ QUIZ ═══ -->
+  <div class="screen" id="screen-quiz">
+    <button class="back-btn" onclick="goHome()">← ホームへ</button>
+    <div class="quiz-header">
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+      <div class="progress-label" id="progress-label">0/0</div>
+    </div>
+    <div id="quiz-area"></div>
+  </div>
+
+  <!-- ═══ RESULT ═══ -->
+  <div class="screen" id="screen-result">
+    <button class="back-btn" onclick="goHome()">← ホームへ</button>
+    <div class="result-card">
+      <div class="result-icon">🔬</div>
+      <div class="result-big" id="res-correct">0</div>
+      <div class="result-denom" id="res-denom">/ 0問 正解</div>
+      <div class="result-msg" id="res-msg"></div>
+      <div class="result-actions">
+        <button class="result-btn primary" onclick="goHome()">ホームに戻る</button>
+        <button class="result-btn miss" id="res-miss-btn" onclick="startMode('miss')" style="display:none">間違えた問題を復習する</button>
+        <button class="result-btn secondary" onclick="retryMode()">もう一度同じセットで</button>
+      </div>
+    </div>
+    <div class="result-breakdown" id="result-breakdown" style="display:none">
+      <div class="result-breakdown-title">📊 今回の科目別 正答率</div>
+      <div id="result-rows"></div>
+    </div>
+  </div>
+</main>
+
+<script src="script.js"></script>
+</body>
+</html>
