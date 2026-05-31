@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>近代日本史 期末テスト対策</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<header>
+  <div class="header-inner">
+    <div class="header-title">
+      近代日本史　期末テスト対策
+      <small>明治〜大正時代</small>
+    </div>
+    <div class="header-stats">
+      <div class="hstat ok"><div class="hstat-n" id="hstat-ok">0</div><div class="hstat-l">正解</div></div>
+      <div class="hstat ng"><div class="hstat-n" id="hstat-ng">0</div><div class="hstat-l">苦手</div></div>
+      <div class="hstat all"><div class="hstat-n" id="hstat-all">0</div><div class="hstat-l">全問</div></div>
+    </div>
+  </div>
+</header>
+
+<!-- ══════════════════════════════════════
+     SCREEN: HOME
+═══════════════════════════════════════ -->
+<div id="screen-home" class="screen">
+  <main>
+    <div class="home-hero">
+      <h2>期末テスト 90点を目指そう！</h2>
+      <p>全9単元・143問で完全対策</p>
+      <div class="overall-bar">
+        <div class="overall-bar-label">
+          <span>学習進捗</span>
+          <span><span id="overall-done">0</span> / <span id="overall-total">0</span> 問マスター　<span id="overall-pct">0%</span></span>
+        </div>
+        <div class="bar-track"><div class="bar-fill" id="overall-bar" style="width:0%"></div></div>
+      </div>
+    </div>
+
+    <div class="section-title">モードを選ぶ</div>
+    <div class="mode-btns">
+      <button class="mode-btn" id="btn-all-quiz">
+        <span class="btn-icon">📝</span>
+        4択クイズ<br><small style="font-weight:400;font-size:12px">全単元まとめて</small>
+      </button>
+      <button class="mode-btn" id="btn-all-flash">
+        <span class="btn-icon">🃏</span>
+        フラッシュカード<br><small style="font-weight:400;font-size:12px">全単元まとめて</small>
+      </button>
+      <button class="mode-btn wide" id="btn-weak">
+        <span class="btn-icon">🔥</span>
+        苦手問題だけ集中演習
+      </button>
+    </div>
+
+    <div class="section-title">単元別に選ぶ（クリックでクイズ開始）</div>
+    <div class="unit-grid" id="unit-grid"></div>
+  </main>
+</div>
+
+<!-- ══════════════════════════════════════
+     SCREEN: QUIZ / FLASH
+═══════════════════════════════════════ -->
+<div id="screen-quiz" class="screen">
+  <main>
+    <div class="quiz-header">
+      <div class="quiz-meta">
+        <button class="back-btn" id="quiz-back-btn" style="color:var(--primary);background:none;border:none;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;">
+          ← ホームへ
+        </button>
+        <span class="quiz-unit-badge" id="quiz-badge"></span>
+        <span class="quiz-count" id="quiz-count"></span>
+      </div>
+      <div class="quiz-progress">
+        <div class="quiz-progress-fill" id="quiz-prog-fill" style="width:0%"></div>
+      </div>
+    </div>
+
+    <div id="quiz-area"></div>
+  </main>
+</div>
+
+<!-- ══════════════════════════════════════
+     SCREEN: RESULT
+═══════════════════════════════════════ -->
+<div id="screen-result" class="screen">
+  <main>
+    <div class="result-hero">
+      <div class="result-score"><span id="res-score">0</span><span>点</span></div>
+      <div class="result-msg" id="res-msg"></div>
+      <div class="result-sub" id="res-sub"></div>
+    </div>
+
+    <div class="result-grid">
+      <div class="result-stat rs-ok">
+        <div class="result-stat-n" id="res-ok">0</div>
+        <div class="result-stat-l">正解</div>
+      </div>
+      <div class="result-stat rs-ng">
+        <div class="result-stat-n" id="res-ng">0</div>
+        <div class="result-stat-l">不正解</div>
+      </div>
+      <div class="result-stat rs-all">
+        <div class="result-stat-n" id="res-total">0</div>
+        <div class="result-stat-l">問題数</div>
+      </div>
+    </div>
+
+    <div class="section-title">間違えた問題</div>
+    <div class="wrong-list" id="wrong-list"></div>
+
+    <div class="spacer"></div>
+    <button class="btn btn-primary" id="res-retry-btn">もう一度チャレンジ</button>
+    <div class="spacer"></div>
+    <button class="btn btn-secondary" id="res-weak-btn" style="display:none">間違えた問題だけ復習</button>
+    <div class="spacer"></div>
+    <button class="btn btn-outline" id="res-home-btn">ホームに戻る</button>
+  </main>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
