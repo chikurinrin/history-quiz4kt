@@ -186,15 +186,14 @@ const QUESTIONS = [
 // ═══════════════════════════════════════════════════════
 const state = {
   screen: 'home',
-  mode: 'quiz',         // 'flash' | 'quiz'
-  unitFilter: null,     // null = all
+  unitFilter: null,
   questions: [],
   index: 0,
   score: 0,
   wrong: [],
-  flipped: false,
+  cardState: 'front',   // 'front' | 'flipped' | 'quiz'
   answered: false,
-  progress: {},         // { qid: true/false }
+  progress: {},
 };
 
 // ─── Storage helpers ───
@@ -215,10 +214,6 @@ function shuffle(arr) {
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
-}
-
-function unitColor(unitId) {
-  return (UNITS.find(u => u.id === unitId) || {}).color || '#1e3a8a';
 }
 
 // ─── Progress calculations ───
@@ -259,10 +254,10 @@ function showScreen(id) {
 function renderHome() {
   const { total, done } = overallProgress();
   const pct = total ? Math.round(done / total * 100) : 0;
-  document.getElementById('overall-pct').textContent  = pct + '%';
-  document.getElementById('overall-done').textContent = done;
+  document.getElementById('overall-pct').textContent   = pct + '%';
+  document.getElementById('overall-done').textContent  = done;
   document.getElementById('overall-total').textContent = total;
-  document.getElementById('overall-bar').style.width = pct + '%';
+  document.getElementById('overall-bar').style.width   = pct + '%';
 
   const grid = document.getElementById('unit-grid');
   grid.innerHTML = '';
@@ -280,7 +275,7 @@ function renderHome() {
       <div class="unit-sub">${prog.done} / ${prog.total} 問正解</div>
       ${check ? `<div class="unit-check">${check}</div>` : ''}
     `;
-    card.addEventListener('click', () => startSession('quiz', u.id));
+    card.addEventListener('click', () => startSession('flash', u.id));
     grid.appendChild(card);
   });
 
@@ -291,85 +286,162 @@ function renderHome() {
 //  SESSION START
 // ═══════════════════════════════════════════════════════
 function startSession(mode, unitId) {
-  state.mode       = mode;
   state.unitFilter = unitId;
   state.index      = 0;
   state.score      = 0;
   state.wrong      = [];
+  state.cardState  = 'front';
   state.answered   = false;
-  state.flipped    = false;
 
   let pool = unitId ? QUESTIONS.filter(q => q.unit === unitId) : [...QUESTIONS];
 
   if (mode === 'weak') {
     pool = pool.filter(q => state.progress[q.id] === false);
     if (!pool.length) {
-      alert('苦手問題はまだありません！まずはクイズに挑戦してみよう。');
+      alert('苦手問題はまだありません！まずは学習に挑戦してみよう。');
       return;
     }
   }
   state.questions = shuffle(pool);
-
-  if (mode === 'flash') {
-    renderFlashCard();
-    showScreen('screen-quiz');
-  } else {
-    renderQuizCard();
-    showScreen('screen-quiz');
-  }
+  renderCard();
+  showScreen('screen-quiz');
 }
 
 // ═══════════════════════════════════════════════════════
-//  QUIZ HEADER
+//  CARD HEADER
 // ═══════════════════════════════════════════════════════
 function renderQuizHeader() {
   const q   = state.questions[state.index];
-  const uid = q.unit;
-  const u   = UNITS.find(x => x.id === uid);
+  const u   = UNITS.find(x => x.id === q.unit);
   const tot = state.questions.length;
   const cur = state.index + 1;
   const pct = Math.round(cur / tot * 100);
 
-  document.getElementById('quiz-badge').textContent  = `UNIT ${uid}: ${u.short}`;
-  document.getElementById('quiz-badge').style.background = u.color;
-  document.getElementById('quiz-count').textContent  = `${cur} / ${tot}`;
-  document.getElementById('quiz-prog-fill').style.width = pct + '%';
+  document.getElementById('quiz-badge').textContent        = `UNIT ${q.unit}: ${u.short}`;
+  document.getElementById('quiz-badge').style.background   = u.color;
+  document.getElementById('quiz-count').textContent        = `${cur} / ${tot}`;
+  document.getElementById('quiz-prog-fill').style.width    = pct + '%';
   document.getElementById('quiz-prog-fill').style.background = u.color;
 
-  const backBtn = document.getElementById('quiz-back-btn');
-  backBtn.onclick = () => {
+  document.getElementById('quiz-back-btn').onclick = () => {
     if (confirm('ホームに戻りますか？（進捗は保存されます）')) renderHome();
   };
 }
 
 // ═══════════════════════════════════════════════════════
-//  QUIZ MODE
+//  CARD RENDERING  (flashcard + optional 4択)
 // ═══════════════════════════════════════════════════════
-function renderQuizCard() {
+function renderCard() {
   renderQuizHeader();
-  const q = state.questions[state.index];
+  const q    = state.questions[state.index];
+  const u    = UNITS.find(x => x.id === q.unit);
   const area = document.getElementById('quiz-area');
-  const shuffledChoices = shuffle([...q.choices]);
 
+  if      (state.cardState === 'front')   renderCardFront(q, u, area);
+  else if (state.cardState === 'flipped') renderCardFlipped(q, u, area);
+  else if (state.cardState === 'quiz')    renderCardQuiz(q, u, area);
+}
+
+// ── 表面：問題のみ表示 ──
+function renderCardFront(q, u, area) {
   area.innerHTML = `
-    <div class="q-card">
-      <div class="q-keyword" style="background:${unitColor(q.unit)}">${UNITS.find(u=>u.id===q.unit).short}</div>
+    <div class="q-card flash-q-card">
+      <div class="q-keyword" style="background:${u.color}">${u.short}</div>
       <div class="q-text">${q.q}</div>
     </div>
+    <button class="btn btn-primary" id="btn-reveal">答えを見る</button>
+    <div class="spacer"></div>
+    <button class="btn-quiz-hint" id="btn-switch-quiz">わからない　—　4択クイズで挑戦する</button>
+  `;
+  document.getElementById('btn-reveal').onclick = () => {
+    state.cardState = 'flipped';
+    renderCard();
+  };
+  document.getElementById('btn-switch-quiz').onclick = () => {
+    state.cardState = 'quiz';
+    state.answered  = false;
+    renderCard();
+  };
+}
+
+// ── 裏面：答えを表示・自己採点 ──
+function renderCardFlipped(q, u, area) {
+  area.innerHTML = `
+    <div class="q-card q-card-sm">
+      <div class="q-keyword" style="background:${u.color}">${u.short}</div>
+      <div class="q-text q-text-sm">${q.q}</div>
+    </div>
+    <div class="answer-card">
+      <div class="answer-label">答え</div>
+      <div class="answer-text">${q.a}</div>
+      <div class="answer-exp">${q.exp}</div>
+    </div>
+    <div class="self-rate-btns">
+      <button class="self-btn ng" id="self-ng">✗ 不正解だった</button>
+      <button class="self-btn ok" id="self-ok">✓ 正解だった</button>
+    </div>
+    <button class="btn-no-record" id="btn-no-record">記録しないで次へ</button>
+  `;
+  document.getElementById('self-ok').onclick = () => {
+    if (state.answered) return;
+    state.answered = true;
+    state.progress[q.id] = true;
+    state.score++;
+    saveProgress(); updateHeaderStats();
+    nextQuestion();
+  };
+  document.getElementById('self-ng').onclick = () => {
+    if (state.answered) return;
+    state.answered = true;
+    state.progress[q.id] = false;
+    state.wrong.push(q);
+    saveProgress(); updateHeaderStats();
+    nextQuestion();
+  };
+  document.getElementById('btn-no-record').onclick = () => {
+    if (state.answered) return;
+    state.answered = true;
+    nextQuestion();
+  };
+}
+
+// ── 4択クイズ（「わからない」ボタンから遷移） ──
+function renderCardQuiz(q, u, area) {
+  const shuffledChoices = shuffle([...q.choices]);
+  area.innerHTML = `
+    <div class="q-card">
+      <div class="q-keyword quiz-hint-badge" style="background:${u.color}">${u.short}</div>
+      <div class="q-text">${q.q}</div>
+      <div class="quiz-hint-note">4択モード — 選択肢から選んでください</div>
+    </div>
     <div class="choices" id="choices-container">
-      ${shuffledChoices.map((c,i) => `
-        <button class="choice-btn" data-val="${c}">${c}</button>
-      `).join('')}
+      ${shuffledChoices.map(c => `<button class="choice-btn" data-val="${c}">${c}</button>`).join('')}
     </div>
     <div class="feedback" id="feedback"></div>
     <button class="btn btn-primary" id="next-btn" style="display:none">
       ${state.index < state.questions.length - 1 ? '次の問題 →' : '結果を見る'}
     </button>
+    <button class="btn-no-record" id="btn-no-record">記録しないで次へ</button>
   `;
-
   area.querySelectorAll('.choice-btn').forEach(btn => {
     btn.addEventListener('click', () => handleQuizAnswer(btn, q));
   });
+  document.getElementById('btn-no-record').onclick = () => {
+    if (state.answered) {
+      // 選択済みの記録を取り消す
+      const wasCorrect = state.progress[q.id] === true;
+      delete state.progress[q.id];
+      if (wasCorrect) {
+        state.score--;
+      } else {
+        const idx = state.wrong.indexOf(q);
+        if (idx !== -1) state.wrong.splice(idx, 1);
+      }
+      saveProgress(); updateHeaderStats();
+    }
+    state.answered = true;
+    nextQuestion();
+  };
 }
 
 function handleQuizAnswer(btn, q) {
@@ -380,8 +452,7 @@ function handleQuizAnswer(btn, q) {
   const correct = chosen === q.a;
 
   state.progress[q.id] = correct;
-  saveProgress();
-  updateHeaderStats();
+  saveProgress(); updateHeaderStats();
 
   document.querySelectorAll('.choice-btn').forEach(b => {
     b.disabled = true;
@@ -407,70 +478,9 @@ function handleQuizAnswer(btn, q) {
 
   document.getElementById('next-btn').style.display = 'block';
   document.getElementById('next-btn').onclick = () => nextQuestion();
-}
 
-// ═══════════════════════════════════════════════════════
-//  FLASHCARD MODE
-// ═══════════════════════════════════════════════════════
-function renderFlashCard() {
-  renderQuizHeader();
-  const q    = state.questions[state.index];
-  const area = document.getElementById('quiz-area');
-  state.flipped  = false;
-  state.answered = false;
-
-  area.innerHTML = `
-    <div class="flash-card" id="flash-card">
-      <div class="flash-inner" id="flash-inner">
-        <div class="flash-front">
-          <div class="q-keyword" style="background:${unitColor(q.unit)}">${UNITS.find(u=>u.id===q.unit).short}</div>
-          <div class="q-text">${q.q}</div>
-          <div class="flash-tap">タップ / クリックして答えを確認</div>
-        </div>
-        <div class="flash-back">
-          <div class="flash-answer">${q.a}</div>
-          <div class="flash-exp">${q.exp}</div>
-        </div>
-      </div>
-    </div>
-    <div id="flash-self-area" style="display:none">
-      <div class="flash-nav">
-        <div class="flash-self">
-          <button class="self-btn ng" id="self-ng">✗ 不正解</button>
-          <button class="self-btn ok" id="self-ok">✓ 正解</button>
-        </div>
-      </div>
-      <button class="btn btn-outline" id="next-btn-flash">
-        ${state.index < state.questions.length - 1 ? '→ 次へ（採点せず）' : '→ 結果を見る（採点せず）'}
-      </button>
-    </div>
-  `;
-
-  document.getElementById('flash-card').addEventListener('click', () => {
-    if (!state.flipped) {
-      document.getElementById('flash-inner').classList.add('flipped');
-      document.getElementById('flash-self-area').style.display = 'block';
-      state.flipped = true;
-    }
-  });
-
-  document.getElementById('self-ok').addEventListener('click', () => {
-    if (state.answered) return;
-    state.answered = true;
-    state.progress[q.id] = true;
-    state.score++;
-    saveProgress(); updateHeaderStats();
-    nextQuestion();
-  });
-  document.getElementById('self-ng').addEventListener('click', () => {
-    if (state.answered) return;
-    state.answered = true;
-    state.progress[q.id] = false;
-    state.wrong.push(q);
-    saveProgress(); updateHeaderStats();
-    nextQuestion();
-  });
-  document.getElementById('next-btn-flash').addEventListener('click', () => nextQuestion());
+  // 選択後は「記録しない」のラベルを変える
+  document.getElementById('btn-no-record').textContent = '記録を取り消して次へ';
 }
 
 // ═══════════════════════════════════════════════════════
@@ -478,13 +488,13 @@ function renderFlashCard() {
 // ═══════════════════════════════════════════════════════
 function nextQuestion() {
   state.index++;
-  state.answered = false;
+  state.answered  = false;
+  state.cardState = 'front';
   if (state.index >= state.questions.length) {
     renderResult();
     return;
   }
-  if (state.mode === 'flash') renderFlashCard();
-  else renderQuizCard();
+  renderCard();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -496,9 +506,9 @@ function renderResult() {
   const pct   = Math.round(score / total * 100);
 
   let msg, sub;
-  if (pct >= 90)      { msg = '素晴らしい！目標達成！'; sub = '90点以上で期末試験も安心！'; }
-  else if (pct >= 70) { msg = 'もう少し！あと一歩';     sub = '苦手問題を復習しよう。'; }
-  else                { msg = 'もっと頑張ろう！';       sub = '基本をもう一度確認しよう。'; }
+  if (pct >= 90)      { msg = '素晴らしい！目標達成！';  sub = '90点以上で期末試験も安心！'; }
+  else if (pct >= 70) { msg = 'もう少し！あと一歩';      sub = '苦手問題を復習しよう。'; }
+  else                { msg = 'もっと頑張ろう！';        sub = '基本をもう一度確認しよう。'; }
 
   document.getElementById('res-score').textContent = pct;
   document.getElementById('res-msg').textContent   = msg;
@@ -520,15 +530,10 @@ function renderResult() {
     `).join('');
   }
 
-  document.getElementById('res-retry-btn').onclick = () => {
-    startSession(state.mode, state.unitFilter);
-  };
-  document.getElementById('res-weak-btn').style.display =
-    state.wrong.length ? 'block' : 'none';
-  document.getElementById('res-weak-btn').onclick = () => {
-    startSession('weak', state.unitFilter);
-  };
-  document.getElementById('res-home-btn').onclick = () => renderHome();
+  document.getElementById('res-retry-btn').onclick = () => startSession('flash', state.unitFilter);
+  document.getElementById('res-weak-btn').style.display = state.wrong.length ? 'block' : 'none';
+  document.getElementById('res-weak-btn').onclick  = () => startSession('weak', state.unitFilter);
+  document.getElementById('res-home-btn').onclick  = () => renderHome();
 
   showScreen('screen-result');
 }
@@ -540,10 +545,8 @@ document.addEventListener('DOMContentLoaded', () => {
   state.progress = loadProgress();
   updateHeaderStats();
 
-  // Home mode buttons
-  document.getElementById('btn-all-quiz').addEventListener('click', () => startSession('quiz', null));
   document.getElementById('btn-all-flash').addEventListener('click', () => startSession('flash', null));
-  document.getElementById('btn-weak').addEventListener('click', () => startSession('weak', null));
+  document.getElementById('btn-weak').addEventListener('click',      () => startSession('weak',  null));
 
   renderHome();
 });

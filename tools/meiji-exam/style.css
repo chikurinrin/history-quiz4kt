@@ -100,7 +100,7 @@ main { max-width: 720px; margin: 0 auto; padding: 20px 14px 80px; }
 
 .mode-btns {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 12px;
   margin-bottom: 24px;
 }
@@ -200,46 +200,7 @@ main { max-width: 720px; margin: 0 auto; padding: 20px 14px 80px; }
 .q-text { font-size: 16px; font-weight: 700; line-height: 1.6; }
 .q-hint  { font-size: 12px; color: var(--muted); margin-top: 8px; }
 
-/* ── Flashcard ── */
-.flash-card {
-  perspective: 1000px;
-  margin-bottom: 20px;
-  cursor: pointer;
-}
-.flash-inner {
-  position: relative;
-  transform-style: preserve-3d;
-  transition: transform .5s ease;
-}
-.flash-inner.flipped { transform: rotateY(180deg); }
-.flash-front {
-  position: relative;
-  min-height: 200px;
-  backface-visibility: hidden;
-  border-radius: var(--radius);
-  padding: 28px 22px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  box-shadow: 0 4px 16px var(--shadow);
-  background: var(--surface);
-}
-.flash-back {
-  position: absolute;
-  inset: 0;
-  backface-visibility: hidden;
-  border-radius: var(--radius);
-  padding: 28px 22px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  box-shadow: 0 4px 16px var(--shadow);
-  background: var(--surface2);
-  transform: rotateY(180deg);
-}
-.flash-tap   { font-size: 12px; color: var(--muted); text-align: center; margin-top: 12px; }
-.flash-answer { font-size: 22px; font-weight: 900; color: var(--primary); margin-bottom: 10px; }
-.flash-exp    { font-size: 13px; color: var(--muted); line-height: 1.55; }
+/* (旧フラッシュカードアニメーションは削除 — 静的カード方式に変更) */
 
 /* ── Choices ── */
 .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
@@ -307,34 +268,120 @@ main { max-width: 720px; margin: 0 auto; padding: 20px 14px 80px; }
 .btn-row { display: flex; gap: 8px; }
 .btn-row .btn { flex: 1; }
 
-/* ── Flash navigation ── */
-.flash-nav {
+/* ── Answer card (flipped state) ── */
+.answer-card {
+  background: var(--primary);
+  color: #fff;
+  border-radius: var(--radius);
+  padding: 22px 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 16px var(--shadow);
+}
+.answer-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  opacity: .7;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+.answer-text {
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1.35;
+  margin-bottom: 10px;
+}
+.answer-exp {
+  font-size: 13px;
+  opacity: .85;
+  line-height: 1.55;
+}
+
+/* ── Self-rate buttons (flipped state) ── */
+.self-rate-btns {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
   gap: 10px;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
-.flash-self {
-  display: flex;
-  gap: 8px;
+.self-rate-btns .self-btn {
   flex: 1;
-  justify-content: center;
-}
-.self-btn {
-  flex: 1;
-  padding: 12px;
+  padding: 14px 10px;
   border-radius: 10px;
   border: none;
   font-family: inherit;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   cursor: pointer;
-  transition: opacity .15s;
+  transition: opacity .15s, transform .1s;
 }
-.self-btn.ok { background: #dcfce7; color: var(--correct); }
-.self-btn.ng { background: #fee2e2; color: var(--wrong); }
-.self-btn:hover { opacity: .8; }
+.self-rate-btns .self-btn:hover { opacity: .85; transform: translateY(-1px); }
+.self-rate-btns .self-btn.ok { background: #dcfce7; color: var(--correct); }
+.self-rate-btns .self-btn.ng { background: #fee2e2; color: var(--wrong); }
+
+/* ── 記録しないで次へ ── */
+.btn-no-record {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: transparent;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  text-align: center;
+  margin-top: 6px;
+  transition: background .15s;
+}
+.btn-no-record:hover { background: var(--surface2); }
+
+/* ── "わからない" hint button ── */
+.btn-quiz-hint {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: 2px dashed var(--border);
+  background: transparent;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  text-align: center;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.btn-quiz-hint:hover {
+  border-color: var(--warn);
+  color: var(--warn);
+  background: #fffbeb;
+}
+
+/* ── Flash question card ── */
+.flash-q-card { min-height: 180px; }
+
+/* ── Smaller question card (flipped / quiz) ── */
+.q-card-sm {
+  padding: 14px 18px;
+  min-height: unset;
+  background: var(--surface2);
+  margin-bottom: 12px;
+}
+.q-text-sm {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* ── Quiz hint note ── */
+.quiz-hint-note {
+  font-size: 12px;
+  color: var(--warn);
+  font-weight: 600;
+  margin-top: 10px;
+}
 
 /* ── Result Screen ── */
 .result-hero {
@@ -411,9 +458,7 @@ main { max-width: 720px; margin: 0 auto; padding: 20px 14px 80px; }
 }
 
 @media (max-width: 480px) {
-  .unit-grid { grid-template-columns: 1fr; }
-  .choices { grid-template-columns: 1fr; }
-  .mode-btns { grid-template-columns: 1fr; }
-  .mode-btn.wide { grid-column: unset; }
+  .unit-grid   { grid-template-columns: 1fr; }
+  .choices     { grid-template-columns: 1fr; }
   .result-grid { grid-template-columns: 1fr 1fr; }
 }
