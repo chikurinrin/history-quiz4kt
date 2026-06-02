@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>英熟語クイズ</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@500&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+<header>
+  <span class="header-brand">公民の課題（K.T）</span>
+  <h1>英熟語クイズ</h1>
+  <p>全 200 語 ・ フラッシュカード / 4択 / タイピング / 一覧</p>
+</header>
+
+<div class="progress-section">
+  <div class="progress-label">
+    <span>習得進捗</span>
+    <span id="progress-text">0 / 200 習得済み</span>
+  </div>
+  <div class="progress-track">
+    <div class="progress-fill" id="progress-bar"></div>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="btn-group">
+    <span class="group-label">モード</span>
+    <button class="mode-btn active" data-mode="flashcard">🃏 フラッシュカード</button>
+    <button class="mode-btn" data-mode="choice">🔢 4択クイズ</button>
+    <button class="mode-btn" data-mode="typing">⌨️ タイピング</button>
+    <button class="mode-btn" data-mode="list">📋 一覧</button>
+  </div>
+  <div class="btn-group">
+    <span class="group-label">範囲</span>
+    <button class="cat-btn active" data-cat="all">すべて</button>
+    <button class="cat-btn" data-cat="動詞句">動詞句</button>
+    <button class="cat-btn" data-cat="副詞句">副詞句</button>
+  </div>
+  <div class="score-row">
+    <span id="score-board"></span>
+    <button id="reset-btn">記録リセット</button>
+  </div>
+</div>
+
+<div id="card-area"></div>
+
+<script src="script.js"></script>
+</body>
+</html>
