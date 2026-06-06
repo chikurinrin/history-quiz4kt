@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>技術科テスト対策｜生物育成の技術</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ── ホーム画面 ── -->
+<div id="screen-home" class="screen">
+  <div class="home-header">
+    <div class="subject-tag">中学3年 技術科 1学期末テスト対策</div>
+    <h1>生物育成の技術<br>確認クイズ</h1>
+    <p class="subtitle">答えを入力 → 正解を確認 → 自己採点</p>
+  </div>
+
+  <!-- 進捗状況カード -->
+  <div class="card" id="progress-card">
+    <div class="progress-card-header">
+      <h2>進捗状況</h2>
+      <button class="btn-reset" onclick="clearAllStats()">リセット</button>
+    </div>
+    <div class="ps-row">
+      <div class="ps-item ps-correct">
+        <div class="ps-num" id="hs-correct">0</div>
+        <div class="ps-label">✅ 正解</div>
+      </div>
+      <div class="ps-item ps-unsure">
+        <div class="ps-num" id="hs-unsure">0</div>
+        <div class="ps-label">⚠️ 自信がない</div>
+      </div>
+      <div class="ps-item ps-wrong">
+        <div class="ps-num" id="hs-wrong">0</div>
+        <div class="ps-label">❌ 不正解</div>
+      </div>
+      <div class="ps-item ps-unanswered">
+        <div class="ps-num" id="hs-unanswered">0</div>
+        <div class="ps-label">⬜ 未挑戦</div>
+      </div>
+    </div>
+    <div id="home-cat-bars" class="cat-bars"></div>
+  </div>
+
+  <!-- 復習ボタン -->
+  <div id="home-retry-section" class="hidden">
+    <button class="home-retry-btn retry-both" onclick="startHomeRetry('both')">
+      ⚠️❌ 不正解＋自信がない問題を復習
+      <span id="home-retry-count-both" class="retry-count"></span>
+    </button>
+    <button class="home-retry-btn retry-wrong" onclick="startHomeRetry('wrong')">
+      ❌ 不正解のみ復習
+      <span id="home-retry-count-wrong" class="retry-count"></span>
+    </button>
+  </div>
+
+  <!-- カテゴリ選択 + 開始 -->
+  <div class="card">
+    <h2>カテゴリを選ぶ（任意）</h2>
+    <div id="category-list"></div>
+  </div>
+
+  <button class="start-btn" onclick="startQuiz(false)">全問から挑戦する</button>
+</div>
+
+<!-- ── クイズ画面 ── -->
+<div id="screen-quiz" class="screen hidden">
+  <div class="quiz-topbar">
+    <button class="btn-home-quiz" onclick="goHome()">← ホーム</button>
+    <div class="progress-wrap">
+      <div id="progress-bar" style="width:0%"></div>
+    </div>
+    <span id="progress-text">1 / 50</span>
+  </div>
+
+  <div class="question-card">
+    <div id="category-badge"></div>
+    <p id="question-text"></p>
+  </div>
+
+  <!-- フェーズ1: 回答入力 -->
+  <div id="phase-input">
+    <textarea id="user-answer" placeholder="ここに答えを書いてみよう…" rows="3"></textarea>
+    <div class="input-actions">
+      <button class="btn-check" onclick="revealAnswer()">答えを確認する</button>
+      <button class="btn-skip-pre" onclick="markResult('skip')">対象外にする</button>
+    </div>
+  </div>
+
+  <!-- フェーズ2: 正解確認・自己評価 -->
+  <div id="phase-eval" class="hidden">
+    <div class="user-answer-box">
+      <div class="box-label">あなたの回答</div>
+      <div id="user-answer-display"></div>
+    </div>
+    <div class="correct-answer-box">
+      <div class="box-label">正解</div>
+      <div id="correct-answer-text"></div>
+    </div>
+    <div class="explanation-box">
+      <div id="explanation-text"></div>
+    </div>
+    <div class="eval-label">この問題を自己採点してください</div>
+    <div class="eval-btns">
+      <button class="btn-correct" onclick="markResult('correct')">✅ 正解</button>
+      <button class="btn-unsure"  onclick="markResult('unsure')">⚠️ 自信がない</button>
+      <button class="btn-wrong"   onclick="markResult('wrong')">❌ 不正解</button>
+    </div>
+    <button class="btn-skip-eval" onclick="markResult('skip')">➡️ 対象外にする</button>
+  </div>
+</div>
+
+<!-- ── 結果画面 ── -->
+<div id="screen-result" class="screen hidden">
+  <div class="result-header">
+    <h2>結果</h2>
+    <div class="result-summary">
+      <div class="summary-item correct-item">
+        <div class="summary-num" id="res-correct">0</div>
+        <div class="summary-label">✅ 正解</div>
+      </div>
+      <div class="summary-item unsure-item">
+        <div class="summary-num" id="res-unsure">0</div>
+        <div class="summary-label">⚠️ 自信がない</div>
+      </div>
+      <div class="summary-item wrong-item">
+        <div class="summary-num" id="res-wrong">0</div>
+        <div class="summary-label">❌ 不正解</div>
+      </div>
+      <div class="summary-item rate-item">
+        <div class="summary-num" id="res-rate">-</div>
+        <div class="summary-label">正答率</div>
+      </div>
+    </div>
+    <div id="result-msg" class="result-msg"></div>
+  </div>
+
+  <!-- カテゴリ別集計 (先に表示) -->
+  <div class="card">
+    <h2>カテゴリ別の結果</h2>
+    <div class="table-wrap">
+      <table id="cat-table">
+        <thead>
+          <tr>
+            <th>カテゴリ</th>
+            <th class="col-c">✅</th>
+            <th class="col-u">⚠️</th>
+            <th class="col-w">❌</th>
+            <th class="col-r">正答率</th>
+          </tr>
+        </thead>
+        <tbody id="cat-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 不正解問題の再挑戦 -->
+  <div class="retry-section" id="retry-section">
+    <button class="btn-retry-wrong-big" onclick="retryWrong()" id="btn-retry-wrong">
+      ❌ 不正解の問題だけ繰り返す
+    </button>
+  </div>
+
+  <!-- 不正解問題の一覧 -->
+  <div class="wrong-review" id="wrong-review-section">
+    <h3>不正解だった問題</h3>
+    <div id="wrong-list"></div>
+  </div>
+
+  <div class="result-btns">
+    <button class="btn-all"  onclick="startQuiz(false)">もう一度全問</button>
+    <button class="btn-home" onclick="initHome()">トップへ</button>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
