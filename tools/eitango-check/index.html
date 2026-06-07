@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>英単語確認アプリ</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+<header>
+  <button id="home-btn" class="home-btn" hidden>🏠 ホーム</button>
+  <h1>英単語確認アプリ</h1>
+  <p id="header-sub">例文ベース・習得まで繰り返し</p>
+</header>
+
+<main id="app">
+
+  <!-- ===== ホーム画面 ===== -->
+  <section id="screen-home" class="screen">
+    <div class="card panel">
+      <h2>出題の向き</h2>
+      <div class="seg" id="dir-seg">
+        <button class="seg-btn active" data-dir="en2ja">英語 → 日本語</button>
+        <button class="seg-btn" data-dir="ja2en">日本語 → 英語</button>
+      </div>
+      <p class="hint" style="margin-top:10px;text-align:left;">向きごとに学習記録は別々に保存されます。</p>
+    </div>
+
+    <div class="card panel">
+      <h2>📖 通常学習</h2>
+      <p class="hint" style="text-align:left;margin:-4px 0 12px;">セットを選ぶと、過去の実績に関係なく全語を出題します。<br>「不正解」「自信がない」と判定した語は、正解になるまでその回で繰り返し出ます。</p>
+      <p class="muted" id="total-info" style="margin:4px 0 12px;"></p>
+      <div id="set-list" class="set-list"></div>
+    </div>
+
+    <div class="card panel">
+      <h2>🔁 復習（全セット対象・現在の向き）</h2>
+      <div class="review-actions">
+        <button id="rev-wrong" class="btn btn-primary">❌ 間違いのみを出題 <span id="cnt-wrong" class="cnt"></span></button>
+        <button id="rev-wrong-unsure" class="btn btn-primary">❌🤔 間違い＋自信なしを出題 <span id="cnt-wu" class="cnt"></span></button>
+      </div>
+      <p class="hint" style="margin-top:10px;">これまでに「不正解／自信がない」と判定した語だけを復習します。</p>
+    </div>
+
+    <!-- 最下部：全記録リセット（小さく表示・確認ボタン付き） -->
+    <div class="reset-zone">
+      <button id="reset-all" class="reset-link">全記録をリセット</button>
+      <div id="reset-confirm" class="reset-confirm" hidden>
+        <p>すべての学習記録（英→日・日→英の両方）を消去します。元に戻せません。よろしいですか？</p>
+        <div class="reset-confirm-btns">
+          <button id="reset-yes" class="btn btn-danger">はい、リセットする</button>
+          <button id="reset-no" class="btn btn-ghost">キャンセル</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== クイズ画面 ===== -->
+  <section id="screen-quiz" class="screen" hidden>
+    <div class="quiz-top">
+      <span id="quiz-title" class="quiz-title"></span>
+      <div class="progress-track"><div class="progress-fill" id="quiz-progress"></div></div>
+      <span id="quiz-count" class="quiz-count"></span>
+    </div>
+
+    <div class="card question-card">
+      <span id="q-direction" class="q-direction"></span>
+      <div id="q-word" class="q-word"></div>
+
+      <div id="choices" class="choices" hidden></div>
+
+      <div id="answer-box" class="answer-box" hidden>
+        <div class="answer-meaning" id="a-meaning"></div>
+        <div class="answer-sentence">
+          <p class="sent-en" id="a-sent-en"></p>
+          <p class="sent-ja" id="a-sent-ja"></p>
+        </div>
+      </div>
+
+      <!-- 答えを見る前：判定ボタンは出さない -->
+      <div class="action-row" id="pre-action">
+        <button id="hint-btn" class="btn btn-outline">💡 4択ヒント</button>
+        <button id="reveal-btn" class="btn btn-primary">答えを見る</button>
+      </div>
+
+      <!-- 答えの画面でのみ判定ボタンを表示 -->
+      <div class="grade-row" id="grade-action" hidden>
+        <button class="btn grade" data-grade="correct">⭕ 正解</button>
+        <button class="btn grade" data-grade="wrong">❌ 不正解</button>
+        <button class="btn grade" data-grade="unsure">🤔 自信がない</button>
+        <button class="btn grade" data-grade="skip">⏭ カウント対象外</button>
+      </div>
+    </div>
+
+    <div class="live-tally" id="live-tally"></div>
+  </section>
+
+  <!-- ===== 結果 / 進捗画面 ===== -->
+  <section id="screen-result" class="screen" hidden>
+    <div class="card panel">
+      <h2 id="result-title">進捗</h2>
+      <div class="chart" id="chart"></div>
+      <div class="legend" id="legend"></div>
+    </div>
+
+    <div class="card panel">
+      <h2>次にどうする？</h2>
+      <div class="review-actions">
+        <button id="retry-btn" class="btn btn-outline">🔁 もう一度（同じ内容）</button>
+        <button id="res-rev-wrong" class="btn btn-primary">❌ 間違いのみを出題 <span id="res-cnt-wrong" class="cnt"></span></button>
+        <button id="res-rev-wu" class="btn btn-primary">❌🤔 間違い＋自信なしを出題 <span id="res-cnt-wu" class="cnt"></span></button>
+      </div>
+      <p class="hint" id="review-hint"></p>
+    </div>
+
+    <button id="result-home" class="btn btn-ghost wide">🏠 ホームに戻る</button>
+  </section>
+
+</main>
+
+<script src="data.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
