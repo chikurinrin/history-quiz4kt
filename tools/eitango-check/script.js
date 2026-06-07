@@ -38,7 +38,7 @@ const state = {
 
 // ---------- 要素参照 ----------
 const $ = (id) => document.getElementById(id);
-const screens = { home: $("screen-home"), quiz: $("screen-quiz"), result: $("screen-result") };
+const screens = { home: $("screen-home"), quiz: $("screen-quiz"), play: $("screen-play"), result: $("screen-result") };
 
 function showScreen(name) {
   for (const key in screens) screens[key].hidden = key !== name;
@@ -86,7 +86,7 @@ function buildHome() {
     const c = statsOf(set);
     const pct = Math.round((c.correct / c.total) * 100);
 
-    const card = document.createElement("button");
+    const card = document.createElement("div");
     card.className = "set-btn";
     card.innerHTML = `
       <div class="set-head">
@@ -104,17 +104,28 @@ function buildHome() {
         <span class="t-wrong">❌${c.wrong}</span>
         <span class="t-unsure">🤔${c.unsure}</span>
         <span class="t-unseen">・未${c.unseen}</span>
+      </div>
+      <div class="set-actions">
+        <button class="set-go" type="button">📖 学習</button>
+        <button class="set-play" type="button">🎧 かけ流し</button>
       </div>`;
-    card.addEventListener("click", () => startNormal(i));
+    card.querySelector(".set-go").addEventListener("click", () => startNormal(i));
+    card.querySelector(".set-play").addEventListener("click", () => startPlayback(i));
     list.appendChild(card);
   });
 
   // 全体の復習対象数
   const all = statsOf(WORDS);
-  $("cnt-wrong").textContent = `(${all.wrong})`;
-  $("cnt-wu").textContent = `(${all.wrong + all.unsure})`;
-  $("rev-wrong").disabled = all.wrong === 0;
-  $("rev-wrong-unsure").disabled = (all.wrong + all.unsure) === 0;
+  const wrongN = all.wrong;
+  const wuN = all.wrong + all.unsure;
+  $("cnt-wrong").textContent = `(${wrongN})`;
+  $("cnt-wu").textContent = `(${wuN})`;
+  $("pcnt-wrong").textContent = `(${wrongN})`;
+  $("pcnt-wu").textContent = `(${wuN})`;
+  $("rev-wrong").disabled = wrongN === 0;
+  $("rev-wrong-unsure").disabled = wuN === 0;
+  $("play-wrong").disabled = wrongN === 0;
+  $("play-wu").disabled = wuN === 0;
 }
 
 // 出題の向き切替
@@ -241,6 +252,137 @@ function showHint() {
   $("hint-btn").disabled = true;
 }
 
+// ---------- 発音（Web Speech API） ----------
+const canSpeak = typeof window !== "undefined" && "speechSynthesis" in window;
+
+// 読み上げ用にテキストを整形（表示文字はすべて読み上げる。区切り記号は読点に変換）
+function cleanSpeech(text) {
+  return text
+    .replace(/[（(）)・]/g, "、")        // 注釈・別訳の区切りは読点（ポーズ）にして全部読む
+    .replace(/[~＝=「」?？!！]/g, " ")    // 読み上げに不要な記号は除去
+    .replace(/[ \t]+/g, " ")
+    .replace(/、+/g, "、")
+    .replace(/^[、\s]+|[、\s]+$/g, "")
+    .trim();
+}
+
+function speak(text, lang) {
+  lang = lang || "en-US";
+  if (!canSpeak || !text) return;
+  const clean = cleanSpeech(text);
+  if (!clean) return;
+  window.speechSynthesis.cancel(); // 連続押下時に重ならないように
+  const u = new SpeechSynthesisUtterance(clean);
+  u.lang = lang;
+  u.rate = 0.95;
+  window.speechSynthesis.speak(u);
+}
+
+// ---------- かけ流し再生 ----------
+const player = {
+  label: "",
+  order: [],
+  pos: 0,
+  playing: false,
+  loop: true,
+  timers: [],
+};
+
+function clearPlayTimers() {
+  player.timers.forEach(clearTimeout);
+  player.timers = [];
+}
+
+// 1語を読み上げ、終了後に cb を呼ぶ（onend ＋ 保険のタイマー）
+function speakThen(text, lang, cb) {
+  if (!canSpeak) { player.timers.push(setTimeout(cb, 700)); return; }
+  const clean = cleanSpeech(text);
+  if (!clean) { cb(); return; }
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(clean);
+  u.lang = lang;
+  u.rate = 0.95;
+  let done = false;
+  const finish = () => { if (done) return; done = true; cb(); };
+  u.onend = finish;
+  u.onerror = finish;
+  window.speechSynthesis.speak(u);
+  // onend が発火しないブラウザ対策の保険（十分長めに）
+  player.timers.push(setTimeout(finish, Math.max(2000, clean.length * 130) + 1500));
+}
+
+function renderPlayCurrent(w, showJa) {
+  $("play-title").textContent = `${player.label}（かけ流し）`;
+  $("play-count").textContent = `${player.pos + 1} / ${player.order.length}`;
+  $("play-progress").style.width = `${(player.pos / player.order.length) * 100}%`;
+  $("play-word").textContent = w.word;
+  $("play-ja").textContent = showJa ? w.meaning : "";
+}
+
+// 英語 → 3秒 → 日本語 → 次の語、を繰り返す
+function playWord() {
+  if (!player.playing) return;
+  const w = player.order[player.pos];
+  renderPlayCurrent(w, false);
+  speakThen(w.word, "en-US", () => {
+    if (!player.playing) return;
+    player.timers.push(setTimeout(() => {        // 3秒待つ
+      if (!player.playing) return;
+      renderPlayCurrent(w, true);                 // 日本語を表示
+      speakThen(w.meaning, "ja-JP", () => {
+        if (!player.playing) return;
+        player.timers.push(setTimeout(() => {     // 次の語への間
+          if (!player.playing) return;
+          player.pos++;
+          if (player.pos >= player.order.length) {
+            if (player.loop) { player.pos = 0; }
+            else { stopPlayback(); buildHome(); showScreen("home"); return; }
+          }
+          playWord();
+        }, 1200));
+      });
+    }, 3000));
+  });
+}
+
+// 任意の単語リストをランダム順でかけ流し再生
+function startPlaybackList(words, label) {
+  if (!words || words.length === 0) {
+    alert("かけ流しする単語がありません。");
+    return;
+  }
+  stopPlayback();
+  player.order = shuffle(words);   // ★ 順番をランダム化
+  player.label = label;
+  player.pos = 0;
+  player.loop = $("play-loop").checked;
+  player.playing = true;
+  $("play-pause").textContent = "⏸ 一時停止";
+  showScreen("play");
+  playWord();
+}
+
+function startPlayback(i) {
+  startPlaybackList(SETS[i], `セット ${i + 1}`);
+}
+
+function pausePlayback() {
+  player.playing = false;
+  if (canSpeak) window.speechSynthesis.cancel();
+  clearPlayTimers();
+  $("play-pause").textContent = "▶ 再開";
+}
+function resumePlayback() {
+  player.playing = true;
+  $("play-pause").textContent = "⏸ 一時停止";
+  playWord();
+}
+function stopPlayback() {
+  player.playing = false;
+  if (canSpeak) window.speechSynthesis.cancel();
+  clearPlayTimers();
+}
+
 // ---------- 答え表示 ----------
 function revealAnswer() {
   const item = state.current;
@@ -333,22 +475,52 @@ function showResult() {
 // ---------- イベント結線 ----------
 $("hint-btn").addEventListener("click", showHint);
 $("reveal-btn").addEventListener("click", revealAnswer);
+$("speak-word").addEventListener("click", () => { if (state.current) speak(state.current.word); });
+$("speak-sent").addEventListener("click", () => { if (state.current) speak(state.current.sentEn); });
+if (!canSpeak) {
+  $("speak-word").disabled = true;
+  $("speak-sent").disabled = true;
+  $("speak-word").title = $("speak-sent").title = "このブラウザは音声読み上げに対応していません";
+}
 document.querySelectorAll("#grade-action .grade").forEach((b) => {
   b.addEventListener("click", () => grade(b.dataset.grade));
 });
 
 $("home-btn").addEventListener("click", () => {
+  if (!screens.play.hidden) { // かけ流し中は確認なしで停止
+    stopPlayback();
+    buildHome();
+    showScreen("home");
+    return;
+  }
   if (confirm("ホームに戻ります。（これまでの判定は保存されています）")) {
     buildHome();
     showScreen("home");
   }
 });
+
+// かけ流し再生のコントロール
+$("play-pause").addEventListener("click", () => {
+  if (player.playing) pausePlayback(); else resumePlayback();
+});
+$("play-stop").addEventListener("click", () => {
+  stopPlayback();
+  buildHome();
+  showScreen("home");
+});
+$("play-loop").addEventListener("change", () => { player.loop = $("play-loop").checked; });
 $("result-home").addEventListener("click", () => { buildHome(); showScreen("home"); });
 $("retry-btn").addEventListener("click", () => { if (state.restart) state.restart(); });
 
 // ホームの全体復習ボタン
 $("rev-wrong").addEventListener("click", () => startReview(["wrong"], WORDS, null, "全体"));
 $("rev-wrong-unsure").addEventListener("click", () => startReview(["wrong", "unsure"], WORDS, null, "全体"));
+
+// 苦手単語のかけ流し
+$("play-wrong").addEventListener("click", () =>
+  startPlaybackList(wordsByStatus(WORDS, ["wrong"]), "苦手（間違い）"));
+$("play-wu").addEventListener("click", () =>
+  startPlaybackList(wordsByStatus(WORDS, ["wrong", "unsure"]), "苦手（間違い＋自信なし）"));
 
 // 全記録リセット：まず確認ボタンを表示し、「はい」で実行
 $("reset-all").addEventListener("click", () => {

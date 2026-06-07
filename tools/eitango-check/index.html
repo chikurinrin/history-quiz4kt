@@ -42,8 +42,10 @@
       <div class="review-actions">
         <button id="rev-wrong" class="btn btn-primary">❌ 間違いのみを出題 <span id="cnt-wrong" class="cnt"></span></button>
         <button id="rev-wrong-unsure" class="btn btn-primary">❌🤔 間違い＋自信なしを出題 <span id="cnt-wu" class="cnt"></span></button>
+        <button id="play-wrong" class="btn btn-outline">🎧 間違いをかけ流し <span id="pcnt-wrong" class="cnt"></span></button>
+        <button id="play-wu" class="btn btn-outline">🎧 間違い＋自信なしをかけ流し <span id="pcnt-wu" class="cnt"></span></button>
       </div>
-      <p class="hint" style="margin-top:10px;">これまでに「不正解／自信がない」と判定した語だけを復習します。</p>
+      <p class="hint" style="margin-top:10px;">これまでに「不正解／自信がない」と判定した苦手単語だけを、出題またはかけ流しで復習できます。</p>
     </div>
 
     <!-- 最下部：全記録リセット（小さく表示・確認ボタン付き） -->
@@ -75,6 +77,10 @@
 
       <div id="answer-box" class="answer-box" hidden>
         <div class="answer-meaning" id="a-meaning"></div>
+        <div class="speak-row">
+          <button id="speak-word" class="speak-btn" type="button">🔊 単語を発音</button>
+          <button id="speak-sent" class="speak-btn" type="button">🔊 例文を発音</button>
+        </div>
         <div class="answer-sentence">
           <p class="sent-en" id="a-sent-en"></p>
           <p class="sent-ja" id="a-sent-ja"></p>
@@ -97,6 +103,29 @@
     </div>
 
     <div class="live-tally" id="live-tally"></div>
+  </section>
+
+  <!-- ===== かけ流し再生画面 ===== -->
+  <section id="screen-play" class="screen" hidden>
+    <div class="quiz-top">
+      <span id="play-title" class="quiz-title"></span>
+      <div class="progress-track"><div class="progress-fill" id="play-progress"></div></div>
+      <span id="play-count" class="quiz-count"></span>
+    </div>
+
+    <div class="card question-card">
+      <span class="q-direction">🎧 かけ流し再生中</span>
+      <div id="play-word" class="q-word is-en"></div>
+      <div id="play-ja" class="play-ja"></div>
+
+      <div class="play-controls">
+        <button id="play-pause" class="btn btn-primary">⏸ 一時停止</button>
+        <button id="play-stop" class="btn btn-ghost">⏹ 停止してホームへ</button>
+      </div>
+      <label class="play-loop"><input type="checkbox" id="play-loop" checked /> セットを繰り返す（エンドレス）</label>
+    </div>
+
+    <p class="hint">英語を読み上げ → 約3秒後に日本語を読み上げ → 自動で次の語へ進みます。<br>画面を見なくても、聞き流して学習できます。</p>
   </section>
 
   <!-- ===== 結果 / 進捗画面 ===== -->

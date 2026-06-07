@@ -133,7 +133,23 @@ main {
   text-align: left;
   transition: all .15s;
 }
-.set-btn:hover { border-color: var(--primary); background: #eff6ff; transform: translateY(-2px); }
+.set-btn:hover { border-color: #cbd5e1; }
+.set-actions { display: flex; gap: 8px; margin-top: 4px; }
+.set-actions button {
+  flex: 1;
+  border: 1.5px solid transparent;
+  border-radius: 9px;
+  padding: 9px 6px;
+  font-family: inherit;
+  font-size: .82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .15s;
+}
+.set-go { background: var(--primary); color: #fff; }
+.set-go:hover { background: var(--primary-d); }
+.set-play { background: #eff6ff; color: var(--primary); border-color: var(--primary); }
+.set-play:hover { background: var(--primary); color: #fff; }
 .set-head { display: flex; align-items: baseline; justify-content: space-between; }
 .set-num { font-weight: 700; font-size: 1.02rem; color: var(--primary); }
 .set-master { font-size: .78rem; font-weight: 700; color: var(--correct); }
@@ -220,6 +236,23 @@ main {
   margin-bottom: 18px;
 }
 .answer-meaning { font-size: 1.15rem; font-weight: 700; margin-bottom: 12px; }
+
+/* 発音ボタン */
+.speak-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.speak-btn {
+  border: 1.5px solid var(--primary);
+  background: #eff6ff;
+  color: var(--primary);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-family: inherit;
+  font-size: .85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all .15s;
+}
+.speak-btn:hover:not(:disabled) { background: var(--primary); color: #fff; }
+.speak-btn:disabled { opacity: .4; cursor: not-allowed; }
 .amw { color: var(--primary); }
 .answer-sentence { border-top: 1px dashed var(--line); padding-top: 12px; }
 .sent-en { margin: 0 0 6px; font-family: "Segoe UI", system-ui, sans-serif; font-size: 1rem; color: #334155; }
@@ -259,6 +292,25 @@ main {
 .grade[data-grade="unsure"] { background: var(--unsure); }
 .grade[data-grade="skip"] { background: var(--skip); }
 .grade:hover { filter: brightness(1.08); }
+
+/* かけ流し再生 */
+.play-ja {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--primary);
+  min-height: 1.6em;
+  margin-bottom: 20px;
+}
+.play-controls { display: flex; gap: 10px; margin-bottom: 14px; }
+.play-controls .btn { flex: 1; }
+.play-loop {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: .85rem;
+  color: var(--muted);
+  cursor: pointer;
+}
 
 /* ライブ集計 */
 .live-tally {
