@@ -2,6 +2,49 @@
 // data.js が提供する: SENTENCES, WORDS, SETS, SET_SIZE
 // 各単語: { key, word, meaning, sentEn, sentJa, sentId, setIndex }
 
+// ---------- カスタム単語 ----------
+const CUSTOM_KEY = "eitango-custom-v1";
+
+function loadCustomData() {
+  try {
+    const d = JSON.parse(localStorage.getItem(CUSTOM_KEY));
+    if (d && typeof d.nextId === "number" && Array.isArray(d.sentences)) return d;
+  } catch (e) { /* ignore */ }
+  return { nextId: 1, sentences: [] };
+}
+function saveCustomData() {
+  try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(customData)); } catch (e) { /* ignore */ }
+}
+let customData = loadCustomData();
+
+// ベースデータ＋カスタムデータをマージ
+let allWords = [];
+let allSets = [];
+
+function buildAllData() {
+  const customWords = [];
+  for (const s of customData.sentences) {
+    for (const [en, ja] of s.words) {
+      customWords.push({
+        key: s.id + "|" + en,
+        word: en,
+        meaning: ja,
+        sentEn: s.en || "",
+        sentJa: s.ja || "",
+        sentId: s.id,
+        setIndex: -1,
+        isCustom: true,
+      });
+    }
+  }
+  allWords = [...WORDS, ...customWords];
+  const customSets = [];
+  for (let i = 0; i < customWords.length; i += SET_SIZE) {
+    customSets.push(customWords.slice(i, i + SET_SIZE));
+  }
+  allSets = [...SETS, ...customSets];
+}
+
 // ---------- 永続化（学習記録） ----------
 // progress = { en2ja: { [wordKey]: "correct"|"wrong"|"unsure" }, ja2en: {...} }
 // ※「カウント対象外(skip)」は記録しない（その回だけ出題から外す）
@@ -31,8 +74,7 @@ const state = {
   queue: [],          // この回で出題する残りの単語
   current: null,      // 出題中の単語
   poolSize: 0,        // この回で習得すべき単語数（進捗バー用）
-  session: { correct: 0, wrong: 0, unsure: 0, skip: 0 }, // この回の操作回数
-  skipped: new Set(), // この回でカウント対象外にした key
+  sessionFinal: {},   // key → 単語ごとの現在のステータス（最新の判定のみ保持）
   restart: null,      // 「もう一度」で同じ内容を再開する関数
 };
 
@@ -76,24 +118,41 @@ function wordsByStatus(words, types) {
 
 // ---------- ホーム画面 ----------
 function buildHome() {
-  $("total-info").textContent = `全 ${WORDS.length} 語 / ${SETS.length} セット`;
+  const customWordCount = allWords.length - WORDS.length;
+  const customInfo = customWordCount > 0 ? `（うちカスタム ${customWordCount} 語）` : "";
+  $("total-info").textContent = `全 ${allWords.length} 語 / ${allSets.length} セット${customInfo}`;
+  $("custom-info").textContent = customWordCount > 0
+    ? `追加済み: ${customWordCount} 語`
+    : "まだ単語が追加されていません。";
+
   const list = $("set-list");
   list.innerHTML = "";
 
-  SETS.forEach((set, i) => {
-    const start = i * SET_SIZE + 1;
-    const end = start + set.length - 1;
+  allSets.forEach((set, i) => {
+    const isCustom = i >= SETS.length;
+    let setLabel, rangeLabel;
+    if (isCustom) {
+      const customSetIdx = i - SETS.length + 1;
+      setLabel = (allSets.length - SETS.length > 1) ? `カスタム ${customSetIdx}` : "カスタム単語";
+      rangeLabel = `カスタム単語 ・ ${set.length} 語`;
+    } else {
+      const start = i * SET_SIZE + 1;
+      const end = start + set.length - 1;
+      setLabel = `セット ${i + 1}`;
+      rangeLabel = `${start} 〜 ${end} 語目 ・ ${set.length} 語`;
+    }
+
     const c = statsOf(set);
     const pct = Math.round((c.correct / c.total) * 100);
 
     const card = document.createElement("div");
-    card.className = "set-btn";
+    card.className = "set-btn" + (isCustom ? " set-btn--custom" : "");
     card.innerHTML = `
       <div class="set-head">
-        <span class="set-num">セット ${i + 1}</span>
+        <span class="set-num">${setLabel}</span>
         <span class="set-master">${pct}% 習得</span>
       </div>
-      <span class="set-range">${start} 〜 ${end} 語目 ・ ${set.length} 語</span>
+      <span class="set-range">${rangeLabel}</span>
       <div class="mini-bar">
         <span class="seg-correct" style="width:${(c.correct / c.total) * 100}%"></span>
         <span class="seg-wrong" style="width:${(c.wrong / c.total) * 100}%"></span>
@@ -115,7 +174,7 @@ function buildHome() {
   });
 
   // 全体の復習対象数
-  const all = statsOf(WORDS);
+  const all = statsOf(allWords);
   const wrongN = all.wrong;
   const wuN = all.wrong + all.unsure;
   $("cnt-wrong").textContent = `(${wrongN})`;
@@ -145,8 +204,7 @@ function startSession({ pool, scopeWords, setIndex, label, restart }) {
   state.scopeLabel = label;
   state.setIndex = setIndex;
   state.restart = restart;
-  state.session = { correct: 0, wrong: 0, unsure: 0, skip: 0 };
-  state.skipped = new Set();
+  state.sessionFinal = {};
   state.queue = shuffle(pool);
   state.poolSize = state.queue.length;
   if (state.queue.length === 0) { showResult(); return; }
@@ -187,10 +245,11 @@ function nextQuestion() {
 
 function renderQuestion() {
   const item = state.current;
-  const cleared = state.session.correct + state.skipped.size;
+  const sf = state.sessionFinal;
+  const cleared = Object.values(sf).filter(s => s === "correct" || s === "skip").length;
 
   $("quiz-title").textContent = state.scopeLabel;
-  $("quiz-count").textContent = `残り ${state.queue.length + 1} 語`;
+  $("quiz-count").textContent = `残り ${state.poolSize - cleared} 語`;
   $("quiz-progress").style.width = `${state.poolSize ? (cleared / state.poolSize) * 100 : 0}%`;
 
   if (state.direction === "en2ja") {
@@ -221,7 +280,7 @@ function showHint() {
   const correct = isEn2Ja ? item.meaning : item.word;
   const field = isEn2Ja ? "meaning" : "word";
 
-  const pool = shuffle(WORDS.filter((w) => w[field] !== correct));
+  const pool = shuffle(allWords.filter((w) => w[field] !== correct));
   const seen = new Set([correct]);
   const distractors = [];
   for (const w of pool) {
@@ -402,12 +461,12 @@ function revealAnswer() {
 function grade(result) {
   const w = state.current;
   const dir = state.direction;
-  state.session[result]++;
 
   if (result === "skip") {
-    state.skipped.add(w.key); // 記録せず、この回はもう出さない
+    state.sessionFinal[w.key] = "skip"; // 記録せず、この回はもう出さない
   } else {
     setStatus(dir, w.key, result);
+    state.sessionFinal[w.key] = result; // 単語ごとに最新判定を上書き保持
     // 不正解・自信がない → 正解できるまで繰り返すため末尾に戻す
     if (result === "wrong" || result === "unsure") state.queue.push(w);
   }
@@ -415,12 +474,13 @@ function grade(result) {
 }
 
 function renderLiveTally() {
-  const s = state.session;
+  const counts = { correct: 0, wrong: 0, unsure: 0, skip: 0 };
+  for (const st of Object.values(state.sessionFinal)) counts[st]++;
   $("live-tally").innerHTML =
-    `<span class="t-correct">⭕ ${s.correct}</span>` +
-    `<span class="t-wrong">❌ ${s.wrong}</span>` +
-    `<span class="t-unsure">🤔 ${s.unsure}</span>` +
-    `<span class="t-skip">⏭ ${s.skip}</span>`;
+    `<span class="t-correct">⭕ ${counts.correct}</span>` +
+    `<span class="t-wrong">❌ ${counts.wrong}</span>` +
+    `<span class="t-unsure">🤔 ${counts.unsure}</span>` +
+    `<span class="t-skip">⏭ ${counts.skip}</span>`;
 }
 
 // ---------- 結果 / 進捗グラフ ----------
@@ -434,8 +494,6 @@ function showResult() {
     { label: "自信がない", value: c.unsure, cls: "bar-unsure" },
     { label: "未学習", value: c.unseen, cls: "bar-unseen" },
   ];
-  const max = Math.max(1, ...rows.map((r) => r.value));
-
   const chart = $("chart");
   chart.innerHTML = "";
   rows.forEach((r) => {
@@ -445,15 +503,16 @@ function showResult() {
     row.innerHTML = `
       <span class="chart-label">${r.label}</span>
       <div class="chart-bar-track">
-        <div class="chart-bar ${r.cls}" style="width:${(r.value / max) * 100}%"></div>
+        <div class="chart-bar ${r.cls}" style="width:${pct}%"></div>
       </div>
       <span class="chart-value">${r.value} 語 (${pct}%)</span>`;
     chart.appendChild(row);
   });
 
+  const skipCount = Object.values(state.sessionFinal).filter(s => s === "skip").length;
   $("legend").innerHTML =
     `<span>習得 ${c.correct} / ${c.total} 語</span>` +
-    `<span>今回の対象外 ${state.skipped.size} 語</span>`;
+    `<span>今回の対象外 ${skipCount} 語</span>`;
 
   // 結果画面の復習ボタン（このセッションのスコープ対象）
   const scope = state.scopeWords;
@@ -513,14 +572,14 @@ $("result-home").addEventListener("click", () => { buildHome(); showScreen("home
 $("retry-btn").addEventListener("click", () => { if (state.restart) state.restart(); });
 
 // ホームの全体復習ボタン
-$("rev-wrong").addEventListener("click", () => startReview(["wrong"], WORDS, null, "全体"));
-$("rev-wrong-unsure").addEventListener("click", () => startReview(["wrong", "unsure"], WORDS, null, "全体"));
+$("rev-wrong").addEventListener("click", () => startReview(["wrong"], allWords, null, "全体"));
+$("rev-wrong-unsure").addEventListener("click", () => startReview(["wrong", "unsure"], allWords, null, "全体"));
 
 // 苦手単語のかけ流し
 $("play-wrong").addEventListener("click", () =>
-  startPlaybackList(wordsByStatus(WORDS, ["wrong"]), "苦手（間違い）"));
+  startPlaybackList(wordsByStatus(allWords, ["wrong"]), "苦手（間違い）"));
 $("play-wu").addEventListener("click", () =>
-  startPlaybackList(wordsByStatus(WORDS, ["wrong", "unsure"]), "苦手（間違い＋自信なし）"));
+  startPlaybackList(wordsByStatus(allWords, ["wrong", "unsure"]), "苦手（間違い＋自信なし）"));
 
 // 全記録リセット：まず確認ボタンを表示し、「はい」で実行
 $("reset-all").addEventListener("click", () => {
@@ -539,6 +598,147 @@ $("reset-yes").addEventListener("click", () => {
   buildHome();
 });
 
+// ---------- カスタム単語：単語追加モーダル ----------
+function openAddModal() {
+  $("f-word").value = "";
+  $("f-meaning").value = "";
+  $("f-en").value = "";
+  $("f-ja").value = "";
+  $("add-error").hidden = true;
+  $("modal-add").hidden = false;
+  $("f-word").focus();
+}
+function closeAddModal() { $("modal-add").hidden = true; }
+
+function submitAddWord() {
+  const word = $("f-word").value.trim();
+  const meaning = $("f-meaning").value.trim();
+  const en = $("f-en").value.trim();
+  const ja = $("f-ja").value.trim();
+  if (!word || !meaning) {
+    $("add-error").textContent = "英単語と日本語の意味は必須です。";
+    $("add-error").hidden = false;
+    return;
+  }
+  const id = "c" + customData.nextId++;
+  customData.sentences.push({ id, en, ja, words: [[word, meaning]] });
+  saveCustomData();
+  buildAllData();
+  buildHome();
+  closeAddModal();
+}
+
+// ---------- カスタム単語：管理モーダル ----------
+function openManageModal() {
+  renderManageList();
+  $("modal-manage").hidden = false;
+}
+
+function renderManageList() {
+  const list = $("manage-list");
+  if (customData.sentences.length === 0) {
+    list.innerHTML = '<p class="muted" style="text-align:center;padding:20px;">追加された単語がありません。</p>';
+    return;
+  }
+  list.innerHTML = "";
+  for (const s of customData.sentences) {
+    for (const [word, meaning] of s.words) {
+      const item = document.createElement("div");
+      item.className = "manage-item";
+      item.innerHTML = `
+        <div class="manage-word">
+          <span class="manage-en">${word}</span>
+          <span class="manage-ja">${meaning}</span>
+          ${s.en ? `<span class="manage-sent">${s.en}</span>` : ""}
+        </div>
+        <button class="manage-del" type="button">削除</button>`;
+      item.querySelector(".manage-del").addEventListener("click", () => {
+        deleteCustomWord(s.id, word);
+      });
+      list.appendChild(item);
+    }
+  }
+}
+
+function deleteCustomWord(sentId, word) {
+  const idx = customData.sentences.findIndex(s => s.id === sentId);
+  if (idx === -1) return;
+  const s = customData.sentences[idx];
+  s.words = s.words.filter(([w]) => w !== word);
+  if (s.words.length === 0) customData.sentences.splice(idx, 1);
+  saveCustomData();
+  buildAllData();
+  buildHome();
+  renderManageList();
+}
+
+// ---------- カスタム単語：エクスポート ----------
+function exportData() {
+  const data = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    customWords: customData,
+    progress,
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const dateStr = new Date().toLocaleDateString("ja-JP").replace(/\//g, "-");
+  a.download = `eitango-backup-${dateStr}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ---------- カスタム単語：インポート ----------
+function importData(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.version || !data.customWords || !data.progress) {
+        alert("このファイルは対応していない形式です。");
+        return;
+      }
+      if (!confirm("インポートすると、現在のカスタム単語と回答記録がすべて上書きされます。よろしいですか？")) return;
+      customData = data.customWords;
+      saveCustomData();
+      progress = data.progress;
+      saveProgress();
+      buildAllData();
+      buildHome();
+      alert("インポートが完了しました。");
+    } catch (err) {
+      alert("ファイルの読み込みに失敗しました。");
+    }
+  };
+  reader.readAsText(file);
+}
+
+// ---------- カスタム単語：イベント結線 ----------
+$("add-word-btn").addEventListener("click", openAddModal);
+$("modal-cancel-btn").addEventListener("click", closeAddModal);
+$("modal-add-btn").addEventListener("click", submitAddWord);
+$("modal-add").addEventListener("click", (e) => { if (e.target === $("modal-add")) closeAddModal(); });
+
+$("manage-words-btn").addEventListener("click", openManageModal);
+$("manage-close-btn").addEventListener("click", () => { $("modal-manage").hidden = true; });
+$("modal-manage").addEventListener("click", (e) => { if (e.target === $("modal-manage")) $("modal-manage").hidden = true; });
+
+$("export-btn").addEventListener("click", exportData);
+$("import-btn").addEventListener("click", () => $("import-input").click());
+$("import-input").addEventListener("change", (e) => {
+  if (e.target.files[0]) { importData(e.target.files[0]); e.target.value = ""; }
+});
+
+// Enterキーで最終フィールドから追加
+$("f-ja").addEventListener("keydown", (e) => { if (e.key === "Enter") submitAddWord(); });
+// Escキーでモーダルを閉じる
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") { closeAddModal(); $("modal-manage").hidden = true; }
+});
+
 // ---------- 起動 ----------
+buildAllData();
 buildHome();
 showScreen("home");

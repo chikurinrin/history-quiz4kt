@@ -382,6 +382,96 @@ main {
 .reset-confirm-btns { display: flex; gap: 10px; }
 .reset-confirm-btns .btn { flex: 1; padding: 10px; font-size: .88rem; }
 
+/* ===== カスタム単語パネル ===== */
+.custom-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.custom-actions .btn { flex: 1; min-width: 120px; }
+.custom-io {
+  display: flex;
+  gap: 10px;
+}
+.custom-io .btn { flex: 1; font-size: .85rem; padding: 10px; }
+
+/* カスタムセットカード */
+.set-btn--custom { border-color: #a7f3d0; }
+.set-btn--custom .set-num { color: #059669; }
+
+/* ===== モーダル ===== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, .55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 16px;
+}
+.modal-box {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, .25);
+  padding: 24px;
+  width: 100%;
+  max-width: 440px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.modal-wide { max-width: 560px; }
+.modal-title { margin: 0 0 20px; font-size: 1.1rem; }
+
+/* フォーム */
+.modal-form { display: flex; flex-direction: column; gap: 14px; margin-bottom: 18px; }
+.form-label { display: flex; flex-direction: column; gap: 5px; font-size: .88rem; font-weight: 500; }
+.form-input {
+  border: 1.5px solid var(--line);
+  border-radius: 9px;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: .95rem;
+  outline: none;
+  transition: border-color .15s;
+}
+.form-input:focus { border-color: var(--primary); }
+.req { color: var(--wrong); margin-left: 2px; }
+.opt { color: var(--muted); font-size: .78rem; font-weight: 400; margin-left: 4px; }
+.form-error { color: var(--wrong); font-size: .85rem; margin: -8px 0 0; }
+
+.modal-actions { display: flex; gap: 10px; }
+.modal-actions .btn { flex: 1; }
+
+/* 単語管理リスト */
+.manage-list { max-height: 50vh; overflow-y: auto; margin-bottom: 16px; }
+.manage-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.manage-item:last-child { border-bottom: none; }
+.manage-word { flex: 1; min-width: 0; }
+.manage-en { font-weight: 700; font-size: .95rem; display: block; }
+.manage-ja { color: var(--muted); font-size: .85rem; display: block; }
+.manage-sent { color: #94a3b8; font-size: .78rem; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.manage-del {
+  flex-shrink: 0;
+  border: 1.5px solid var(--wrong);
+  background: #fff;
+  color: var(--wrong);
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-family: inherit;
+  font-size: .8rem;
+  cursor: pointer;
+  transition: all .12s;
+}
+.manage-del:hover { background: var(--wrong); color: #fff; }
+
 @media (max-width: 480px) {
   .q-word { font-size: 1.6rem; }
   .chart-label { width: 72px; font-size: .82rem; }

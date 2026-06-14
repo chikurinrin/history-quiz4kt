@@ -48,6 +48,21 @@
       <p class="hint" style="margin-top:10px;">これまでに「不正解／自信がない」と判定した苦手単語だけを、出題またはかけ流しで復習できます。</p>
     </div>
 
+    <!-- カスタム単語管理 -->
+    <div class="card panel">
+      <h2>✏️ カスタム単語</h2>
+      <p class="muted" id="custom-info" style="margin:-4px 0 12px;"></p>
+      <div class="custom-actions">
+        <button id="add-word-btn" class="btn btn-primary">＋ 単語を追加</button>
+        <button id="manage-words-btn" class="btn btn-outline">📋 一覧・削除</button>
+      </div>
+      <div class="custom-io">
+        <button id="export-btn" class="btn btn-ghost">📤 エクスポート</button>
+        <button id="import-btn" class="btn btn-ghost">📥 インポート</button>
+        <input type="file" id="import-input" accept=".json" style="display:none" />
+      </div>
+    </div>
+
     <!-- 最下部：全記録リセット（小さく表示・確認ボタン付き） -->
     <div class="reset-zone">
       <button id="reset-all" class="reset-link">全記録をリセット</button>
@@ -148,6 +163,47 @@
 
     <button id="result-home" class="btn btn-ghost wide">🏠 ホームに戻る</button>
   </section>
+
+  <!-- 単語追加モーダル -->
+  <div id="modal-add" class="modal-overlay" hidden>
+    <div class="modal-box">
+      <h3 class="modal-title">単語を追加</h3>
+      <div class="modal-form">
+        <label class="form-label">
+          <span>英単語 <span class="req">*</span></span>
+          <input id="f-word" class="form-input" type="text" placeholder="例: fluent" autocomplete="off" />
+        </label>
+        <label class="form-label">
+          <span>日本語の意味 <span class="req">*</span></span>
+          <input id="f-meaning" class="form-input" type="text" placeholder="例: 流暢な" />
+        </label>
+        <label class="form-label">
+          <span>例文（英語）<span class="opt">任意</span></span>
+          <input id="f-en" class="form-input" type="text" placeholder="例: She is fluent in Spanish." />
+        </label>
+        <label class="form-label">
+          <span>例文（日本語）<span class="opt">任意</span></span>
+          <input id="f-ja" class="form-input" type="text" placeholder="例: 彼女はスペイン語が流暢だ。" />
+        </label>
+      </div>
+      <p id="add-error" class="form-error" hidden></p>
+      <div class="modal-actions">
+        <button id="modal-add-btn" class="btn btn-primary">追加する</button>
+        <button id="modal-cancel-btn" class="btn btn-ghost">キャンセル</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 単語管理モーダル -->
+  <div id="modal-manage" class="modal-overlay" hidden>
+    <div class="modal-box modal-wide">
+      <h3 class="modal-title">カスタム単語の管理</h3>
+      <div id="manage-list" class="manage-list"></div>
+      <div class="modal-actions">
+        <button id="manage-close-btn" class="btn btn-ghost">閉じる</button>
+      </div>
+    </div>
+  </div>
 
 </main>
 
