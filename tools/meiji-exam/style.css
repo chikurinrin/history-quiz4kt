@@ -95,8 +95,14 @@ main { max-width: 720px; margin: 0 auto; padding: 20px 14px 80px; }
 .home-hero p  { font-size: 13px; opacity: .8; margin-top: 6px; }
 .overall-bar { margin: 16px auto 0; max-width: 280px; }
 .overall-bar-label { display: flex; justify-content: space-between; font-size: 12px; opacity: .8; margin-bottom: 6px; }
-.bar-track { height: 8px; background: rgba(255,255,255,.25); border-radius: 99px; overflow: hidden; }
-.bar-fill { height: 100%; background: #6ee7b7; border-radius: 99px; transition: width .5s ease; }
+.bar-track { height: 10px; background: rgba(255,255,255,.2); border-radius: 99px; overflow: hidden; display: flex; }
+.bar-fill { height: 100%; border-radius: 0; transition: width .5s ease; }
+.bar-ok { background: #6ee7b7; }
+.bar-ng { background: #fca5a5; }
+.bar-legend { display: flex; justify-content: center; gap: 16px; font-size: 12px; margin-top: 6px; opacity: .9; }
+.legend-ok { color: #6ee7b7; font-weight: 700; }
+.legend-ng { color: #fca5a5; font-weight: 700; }
+.legend-all { opacity: .7; }
 
 .mode-btns {
   display: grid;
@@ -155,9 +161,13 @@ main { max-width: 720px; margin: 0 auto; padding: 20px 14px 80px; }
 .unit-card:active { transform: translateY(0); }
 .unit-num  { font-size: 11px; font-weight: 700; opacity: .7; letter-spacing: .05em; }
 .unit-name { font-size: 13px; font-weight: 800; line-height: 1.35; margin-top: 4px; }
-.unit-sub  { font-size: 11px; opacity: .75; margin-top: 2px; }
-.unit-prog { margin-top: 10px; height: 4px; background: rgba(255,255,255,.25); border-radius: 99px; overflow: hidden; }
-.unit-prog-fill { height: 100%; background: #fff; border-radius: 99px; transition: width .4s ease; }
+.unit-sub  { font-size: 11px; opacity: .85; margin-top: 4px; }
+.usub-ok { color: #6ee7b7; font-weight: 700; margin-right: 4px; }
+.usub-ng { color: #fca5a5; font-weight: 700; margin-right: 4px; }
+.usub-sep { opacity: .5; }
+.unit-prog { margin-top: 10px; height: 5px; background: rgba(255,255,255,.2); border-radius: 99px; overflow: hidden; display: flex; }
+.unit-prog-ok { height: 100%; background: #6ee7b7; transition: width .4s ease; }
+.unit-prog-ng { height: 100%; background: #fca5a5; transition: width .4s ease; }
 .unit-check { position: absolute; top: 10px; right: 10px; font-size: 18px; opacity: .85; }
 
 /* ── Quiz Screen ── */

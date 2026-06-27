@@ -29,14 +29,23 @@
 <div id="screen-home" class="screen">
   <main>
     <div class="home-hero">
-      <h2>期末テスト 90点を目指そう！</h2>
+      <h2>1学期を忘れない！！</h2>
+      <p style="font-size:13px;color:#888;margin-top:-8px;">K.T個人用</p>
       <p>全9単元・143問で完全対策</p>
       <div class="overall-bar">
         <div class="overall-bar-label">
           <span>学習進捗</span>
-          <span><span id="overall-done">0</span> / <span id="overall-total">0</span> 問マスター　<span id="overall-pct">0%</span></span>
+          <span id="overall-pct">0%</span>
         </div>
-        <div class="bar-track"><div class="bar-fill" id="overall-bar" style="width:0%"></div></div>
+        <div class="bar-track">
+          <div class="bar-fill bar-ok" id="overall-bar-ok" style="width:0%"></div>
+          <div class="bar-fill bar-ng" id="overall-bar-ng" style="width:0%;margin-left:0"></div>
+        </div>
+        <div class="bar-legend">
+          <span class="legend-ok">✓ 正解 <span id="overall-ok">0</span>問</span>
+          <span class="legend-ng">✗ 苦手 <span id="overall-ng">0</span>問</span>
+          <span class="legend-all">全 <span id="overall-total">0</span>問</span>
+        </div>
       </div>
     </div>
 

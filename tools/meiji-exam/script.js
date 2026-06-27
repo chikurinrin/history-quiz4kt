@@ -328,7 +328,8 @@ function shuffle(arr) {
 function unitProgress(uid) {
   const qs = QUESTIONS.filter(q => q.unit === uid);
   const done = qs.filter(q => state.progress[q.id] === true).length;
-  return { total: qs.length, done };
+  const ng   = qs.filter(q => state.progress[q.id] === false).length;
+  return { total: qs.length, done, ng };
 }
 
 function overallProgress() {
@@ -360,27 +361,39 @@ function showScreen(id) {
 //  HOME SCREEN
 // ═══════════════════════════════════════════════════════
 function renderHome() {
-  const { total, done } = overallProgress();
-  const pct = total ? Math.round(done / total * 100) : 0;
-  document.getElementById('overall-pct').textContent   = pct + '%';
-  document.getElementById('overall-done').textContent  = done;
-  document.getElementById('overall-total').textContent = total;
-  document.getElementById('overall-bar').style.width   = pct + '%';
+  const total = QUESTIONS.length;
+  const ok  = QUESTIONS.filter(q => state.progress[q.id] === true).length;
+  const ng  = QUESTIONS.filter(q => state.progress[q.id] === false).length;
+  const pct = total ? Math.round(ok / total * 100) : 0;
+  document.getElementById('overall-pct').textContent      = pct + '%';
+  document.getElementById('overall-ok').textContent       = ok;
+  document.getElementById('overall-ng').textContent       = ng;
+  document.getElementById('overall-total').textContent    = total;
+  document.getElementById('overall-bar-ok').style.width   = (total ? ok / total * 100 : 0) + '%';
+  document.getElementById('overall-bar-ng').style.width   = (total ? ng / total * 100 : 0) + '%';
 
   const grid = document.getElementById('unit-grid');
   grid.innerHTML = '';
   UNITS.forEach(u => {
     const prog = unitProgress(u.id);
-    const upct = prog.total ? Math.round(prog.done / prog.total * 100) : 0;
-    const check = upct >= 100 ? '✓' : '';
+    const okPct = prog.total ? prog.done / prog.total * 100 : 0;
+    const ngPct = prog.total ? prog.ng  / prog.total * 100 : 0;
+    const check = prog.done >= prog.total && prog.total > 0 ? '✓' : '';
     const card = document.createElement('button');
     card.className = 'unit-card';
     card.style.background = `linear-gradient(135deg, ${u.color} 0%, ${u.color}cc 100%)`;
     card.innerHTML = `
       <div class="unit-num">UNIT ${u.id}　${u.pages}</div>
       <div class="unit-name">${u.name}</div>
-      <div class="unit-prog"><div class="unit-prog-fill" style="width:${upct}%"></div></div>
-      <div class="unit-sub">${prog.done} / ${prog.total} 問正解</div>
+      <div class="unit-prog">
+        <div class="unit-prog-ok" style="width:${okPct}%"></div>
+        <div class="unit-prog-ng" style="width:${ngPct}%"></div>
+      </div>
+      <div class="unit-sub">
+        <span class="usub-ok">✓${prog.done}</span>
+        <span class="usub-ng">✗${prog.ng}</span>
+        <span class="usub-sep">／</span>${prog.total}問
+      </div>
       ${check ? `<div class="unit-check">${check}</div>` : ''}
     `;
     card.addEventListener('click', () => startSession('flash', u.id));
