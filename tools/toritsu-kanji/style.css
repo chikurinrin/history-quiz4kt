@@ -576,8 +576,29 @@ body.auto-mode .auto-indicator { display: inline; }
 
 .hidden { display: none !important; }
 
+/* ===== 学習中はホーム専用の要素を隠す（進捗はホームのみ） ===== */
+body.quiz-active .app-header,
+body.quiz-active .dashboard,
+body.quiz-active .app-footer { display: none; }
+
+/* ===== 学習画面をスクロールなしで収める（コンパクト化） ===== */
+body.quiz-active { padding-bottom: 12px; }
+.quiz { padding: 16px; }
+.quiz .prompt { margin: 0 0 6px; }
+.quiz .sentence { font-size: 1.4rem; line-height: 1.7; margin: 0 0 12px; }
+.answer-area { margin-bottom: 0; }
+.reveal { margin-top: 12px; padding-top: 12px; }
+.reveal-word { font-size: 1.5rem; }
+.word-meaning { margin-top: 8px; padding: 8px 12px; }
+.kanji-refs { margin-top: 8px; }
+.reveal-hint { margin-top: 8px; padding: 8px 12px; }
+.grade-guide { margin: 8px 0 6px; }
+
 @media (max-width: 480px) {
   .sentence { font-size: 1.25rem; }
+  .quiz .sentence { font-size: 1.3rem; margin: 0 0 10px; }
   .control-label { width: 100%; }
   .dashboard { grid-template-columns: repeat(2, 1fr); }
+  .quiz { padding: 14px; }
+  .reveal-word { font-size: 1.4rem; }
 }

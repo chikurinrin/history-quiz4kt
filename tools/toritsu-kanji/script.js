@@ -84,11 +84,12 @@
     controls: $('controls'), quiz: $('quiz'),
     qLevel: $('qLevel'), qMode: $('qMode'), qProgress: $('qProgress'),
     qPrompt: $('qPrompt'), qSentence: $('qSentence'),
-    answerArea: $('answerArea'), answerInput: $('answerInput'),
+    answerArea: $('answerArea'),
     revealBox: $('revealBox'), revealWord: $('revealWord'),
     revealReading: $('revealReading'), revealHint: $('revealHint'),
-    yourAnswer: $('yourAnswer'), kanjiRefs: $('kanjiRefs'),
+    kanjiRefs: $('kanjiRefs'),
     wordMeaning: $('wordMeaning'),
+    dashboard: $('dashboard'),
     speakBtn: $('speakBtn'), revealBtn: $('revealBtn'),
     speakAnswerBtn: $('speakAnswerBtn'),
     statTotal: $('statTotal'), statCorrect: $('statCorrect'),
@@ -189,6 +190,7 @@
       alert('条件に合う問題がありません。範囲やレベルを変えてください。');
       return;
     }
+    document.body.classList.add('quiz-active');
     el.controls.classList.add('hidden');
     el.quiz.classList.remove('hidden');
     showQuestion();
@@ -206,17 +208,13 @@
     if (settings.mode === 'reading') {
       el.qPrompt.textContent = '次の傍線部の読みをひらがなで答えなさい。';
       el.qSentence.innerHTML = renderSentence(q, 'reading');
-      el.answerInput.placeholder = '読みをひらがなで入力（任意）';
     } else {
       el.qPrompt.textContent = '次の傍線部を漢字で書きなさい。（読み：' + q.reading + '）';
       el.qSentence.innerHTML = renderSentence(q, 'writing');
-      el.answerInput.placeholder = '漢字で入力（任意）';
     }
 
-    el.answerInput.value = '';
     el.answerArea.classList.remove('hidden');
     el.revealBox.classList.add('hidden');
-    if (!auto.on) el.answerInput.focus();
 
     // 自動再生中は問題文（読み以外の情報を明かさない）を読み上げない。
     // 通常モードで自動読み上げがオンのときのみ読み上げる。
@@ -283,18 +281,6 @@
     }
     renderKanjiRefs(q.word);
 
-    // 自己入力があれば簡易判定を表示
-    var typed = el.answerInput.value.trim();
-    if (typed) {
-      var expected = settings.mode === 'reading' ? q.reading : q.word;
-      var ok = normalize(typed) === normalize(expected);
-      el.yourAnswer.textContent = 'あなたの答え：' + typed + (ok ? '（一致）' : '（要確認）');
-      el.yourAnswer.className = 'reveal-your ' + (ok ? 'correct' : 'wrong');
-      el.yourAnswer.classList.remove('hidden');
-    } else {
-      el.yourAnswer.classList.add('hidden');
-    }
-
     el.revealBox.classList.remove('hidden');
     // 答え表示時に読み上げ（自動再生中は音声設定オン時、通常は自動読み上げオン時）
     if (auto.on ? settings.autoVoice : settings.autoSpeak) speak(readingText(q));
@@ -327,6 +313,7 @@
   }
 
   function finishSession() {
+    document.body.classList.remove('quiz-active');
     el.quiz.classList.add('hidden');
     el.controls.classList.remove('hidden');
     updateDashboard();
@@ -339,6 +326,7 @@
   // 学習を中断して設定画面（ホーム）に戻る
   function goHome() {
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    document.body.classList.remove('quiz-active');
     el.quiz.classList.add('hidden');
     el.controls.classList.remove('hidden');
     updateDashboard();
@@ -358,6 +346,7 @@
     }
     auto.on = true;
     document.body.classList.add('auto-mode');
+    document.body.classList.add('quiz-active');
     el.controls.classList.add('hidden');
     el.quiz.classList.remove('hidden');
     autoStep();
@@ -388,6 +377,7 @@
     auto.on = false;
     if (auto.timer) { clearTimeout(auto.timer); auto.timer = null; }
     document.body.classList.remove('auto-mode');
+    document.body.classList.remove('quiz-active');
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     el.quiz.classList.add('hidden');
     el.controls.classList.remove('hidden');
@@ -567,14 +557,6 @@
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
   }
-  // 判定用の正規化：全角/半角・カタカナ→ひらがな・空白除去
-  function normalize(s) {
-    return s
-      .replace(/[ぁ-ゖ]/g, function (c) { return c; })
-      .replace(/[ァ-ヶ]/g, function (c) { return String.fromCharCode(c.charCodeAt(0) - 0x60); })
-      .replace(/\s+/g, '')
-      .trim();
-  }
 
   // =====================================================
   // イベント配線
@@ -603,10 +585,6 @@
   el.revealBtn.addEventListener('click', revealAnswer);
   el.speakBtn.addEventListener('click', function () { speak(readingText(session.current)); });
   el.speakAnswerBtn.addEventListener('click', function () { speak(readingText(session.current)); });
-
-  el.answerInput.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') revealAnswer();
-  });
 
   document.querySelector('.grade-actions').addEventListener('click', function (e) {
     var btn = e.target.closest('.grade');
