@@ -13,6 +13,7 @@
   var LS_HISTORY = 'toritsu-kanji.history.v1'; // 各問題の成績 { id: {correct, wrong, lastResult} }
   var LS_CUSTOM  = 'toritsu-kanji.custom.v1';  // ユーザー追加問題の配列
   var LS_DAILY   = 'toritsu-kanji.daily.v1';   // 日別の学習量 { 'YYYY-MM-DD': {correct,wrong,skip,flash} }
+  var LS_PRIORITY = 'toritsu-kanji.priority.v1'; // 優先度のユーザー編集 { word: 1..5 }
   var GOAL_RATE  = 0.9;                        // 都立9割目標
   var MASTER_HITS = 2;                         // 連続正解でマスター扱いにする回数
   var QUESTIONS_PER_SESSION = 20;
@@ -20,6 +21,10 @@
   // ---- 一意なIDを語＋読みから生成（追加問題と重複しない安定キー） ----
   function makeId(q) {
     return q.word + '|' + q.reading;
+  }
+  // 習熟度は「読み／書き」で別々に記録する。記録キー＝ id + '|r'（読み）/ '|w'（書き）
+  function keyOf(id, mode) {
+    return id + '|' + (mode === 'writing' ? 'w' : 'r');
   }
 
   // ---- データ読み込み（組み込み＋ユーザー追加） ----
@@ -44,7 +49,38 @@
 
   var history = readJSON(LS_HISTORY, {});
   var daily = readJSON(LS_DAILY, {});
+  var userPri = readJSON(LS_PRIORITY, {});
   var allQuestions = loadAllQuestions();
+
+  // 優先度（5=最頻出 … 1=まれ）。3級・準2級のみ。編集値 > 既定データ > ★3。
+  function priorityOf(word, level) {
+    if (userPri.hasOwnProperty(word)) return userPri[word];
+    var d = window.KANJI_PRIORITY && window.KANJI_PRIORITY[word];
+    if (d) return d;
+    return (level === '3級' || level === '準2級') ? 3 : null;
+  }
+  function setPriority(word, n) {
+    userPri[word] = n;
+    writeJSON(LS_PRIORITY, userPri);
+  }
+
+  // 旧データ（読み書き共通・キーに |r/|w が無い）を、読み・書き両方へ引き継ぐ
+  (function migrateHistory() {
+    var changed = false;
+    Object.keys(history).forEach(function (k) {
+      if (k.split('|').length === 2) { // 旧形式 word|reading
+        var rec = history[k];
+        var clone = function () {
+          return { correct: rec.correct || 0, unsure: rec.unsure || 0, wrong: rec.wrong || 0, lastResult: rec.lastResult || null, lastAt: rec.lastAt || 0 };
+        };
+        if (!history[k + '|r']) history[k + '|r'] = clone();
+        if (!history[k + '|w']) history[k + '|w'] = clone();
+        delete history[k];
+        changed = true;
+      }
+    });
+    if (changed) writeJSON(LS_HISTORY, history);
+  })();
 
   // ---- 日別学習ログ ----
   function pad2(n) { return n < 10 ? '0' + n : '' + n; }
@@ -64,19 +100,20 @@
     var s = n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10;
     return Math.max(1, s * pow);
   }
-  // field: 'correct' | 'wrong' | 'skip' | 'flash'
+  // field: 'correct' | 'unsure' | 'wrong' | 'skip' | 'flash'
   function logDaily(field) {
     var k = todayKey();
-    var rec = daily[k] || { correct: 0, wrong: 0, skip: 0, flash: 0 };
+    var rec = daily[k] || { correct: 0, unsure: 0, wrong: 0, skip: 0, flash: 0 };
     rec[field] = (rec[field] || 0) + 1;
     daily[k] = rec;
     writeJSON(LS_DAILY, daily);
   }
 
   // ---- 状態 ----
-  var settings = { mode: 'reading', level: 'all', pool: 'all', autoSpeak: false, autoSpeed: 3, autoVoice: true };
+  var settings = { mode: 'reading', level: 'all', pool: 'all', pri: 'all', autoSpeak: false, autoSpeed: 3, autoVoice: true };
   var session = { queue: [], index: 0, current: null, graded: false };
-  var auto = { on: false, timer: null };
+  var auto = { on: false, paused: false, timer: null };
+  var listFilter = { status: 'all', level: 'all', q: '', dir: 'kw', pri: 'all' }; // dir: kw=漢字→読み / rk=読み→漢字
 
   // ---- DOM 参照 ----
   var $ = function (id) { return document.getElementById(id); };
@@ -93,7 +130,7 @@
     speakBtn: $('speakBtn'), revealBtn: $('revealBtn'),
     speakAnswerBtn: $('speakAnswerBtn'),
     statTotal: $('statTotal'), statCorrect: $('statCorrect'),
-    statRate: $('statRate'), statWeak: $('statWeak'),
+    statRate: $('statRate'), statWeak: $('statWeak'), statUnsure: $('statUnsure'),
     goalFill: $('goalFill'), goalText: $('goalText'),
     totalCount: $('totalCount'),
     addModal: $('addModal'),
@@ -105,46 +142,69 @@
   // =====================================================
   // 統計 / ダッシュボード
   // =====================================================
-  function isWeak(id) {
-    var h = history[id];
-    if (!h) return false;
-    // 直近が不正解、または通算で間違いが正解を上回る＝苦手
-    return h.lastResult === 'wrong' || (h.wrong || 0) > (h.correct || 0);
+  // 以下の区分判定は「読み／書き別の記録キー」を受け取る。
+  // 区分は「直近の判定（lastResult）」で決める（一覧画面での手動変更を確実に反映）
+  function isWeak(key) {
+    var h = history[key];
+    return !!h && h.lastResult === 'wrong';
   }
-  function isMastered(id) {
-    var h = history[id];
+  function isUnsure(key) {
+    var h = history[key];
+    return !!h && h.lastResult === 'unsure';
+  }
+  // 区分： 'correct' | 'unsure' | 'weak' | 'new'
+  function statusOf(key) {
+    var h = history[key];
+    var lr = h ? h.lastResult : null;
+    return lr === 'wrong' ? 'weak' : lr === 'unsure' ? 'unsure' : lr === 'correct' ? 'correct' : 'new';
+  }
+  // 復習が必要（苦手＋不安）
+  function needsReview(key) {
+    return isWeak(key) || isUnsure(key);
+  }
+  function isMastered(key) {
+    var h = history[key];
     return h && h.lastResult === 'correct' && (h.correct || 0) >= MASTER_HITS;
   }
 
   function updateDashboard() {
-    var totalCorrect = 0, totalWrong = 0, weak = 0, mastered = 0;
+    var totalCorrect = 0, totalUnsure = 0, totalWrong = 0, weak = 0, unsure = 0, mastered = 0;
     Object.keys(history).forEach(function (id) {
       var h = history[id];
       totalCorrect += (h.correct || 0);
+      totalUnsure += (h.unsure || 0);
       totalWrong += (h.wrong || 0);
     });
+    // 苦手・不安・マスターは「読み」「書き」の各項目として集計（読み書き別）
+    var modes = ['reading', 'writing'];
     allQuestions.forEach(function (q) {
-      if (isWeak(q.id)) weak++;
-      if (isMastered(q.id)) mastered++;
+      modes.forEach(function (m) {
+        var key = keyOf(q.id, m);
+        if (isWeak(key)) weak++;
+        else if (isUnsure(key)) unsure++;
+        if (isMastered(key)) mastered++;
+      });
     });
 
-    var answered = totalCorrect + totalWrong;
+    var answered = totalCorrect + totalUnsure + totalWrong;
     var rate = answered ? Math.round((totalCorrect / answered) * 100) : 0;
+    var totalItems = allQuestions.length * 2; // 読み＋書き
 
-    el.totalCount.textContent = '収録 ' + allQuestions.length + ' 語（4〜2級）';
+    el.totalCount.textContent = '収録 ' + allQuestions.length + ' 語（読み書きで ' + totalItems + ' 項目）';
     el.statTotal.textContent = answered;
     el.statCorrect.textContent = totalCorrect;
     el.statRate.textContent = rate + '%';
+    el.statUnsure.textContent = unsure;
     el.statWeak.textContent = weak;
 
-    // 目標：全問の9割をマスターする
-    var goalCount = Math.ceil(allQuestions.length * GOAL_RATE);
+    // 目標：全項目（読み書き）の9割をマスターする
+    var goalCount = Math.ceil(totalItems * GOAL_RATE);
     var pct = Math.min(100, Math.round((mastered / goalCount) * 100));
     el.goalFill.style.width = pct + '%';
     if (mastered >= goalCount) {
-      el.goalText.textContent = '🎉 都立9割水準を達成！（' + mastered + '語マスター）';
+      el.goalText.textContent = '🎉 都立9割水準を達成！（' + mastered + '項目マスター）';
     } else {
-      el.goalText.textContent = '都立9割まで あと ' + (goalCount - mastered) + ' 語マスター（' +
+      el.goalText.textContent = '都立9割まで あと ' + (goalCount - mastered) + ' 項目マスター（' +
         mastered + ' / ' + goalCount + '）';
     }
   }
@@ -153,22 +213,35 @@
   // 出題キューの作成
   // =====================================================
   function buildQueue() {
+    // 現在の出題形式（読み／書き）に対応する記録キーで判定する
     var pool = allQuestions.filter(function (q) {
+      var key = keyOf(q.id, settings.mode);
       if (settings.level !== 'all' && q.level !== settings.level) return false;
-      if (settings.pool === 'weak' && !isWeak(q.id)) return false;
-      if (settings.pool === 'unseen' && history[q.id]) return false;
+      if (settings.pool === 'weak' && !needsReview(key)) return false;     // 苦手＋不安
+      if (settings.pool === 'weakonly' && !isWeak(key)) return false;      // 苦手だけ
+      if (settings.pool === 'unseen' && history[key]) return false;
+      if (settings.pri !== 'all') {
+        var p = priorityOf(q.word, q.level);
+        if (p === null) return false;                                     // 優先度なし（4級/2級）は除外
+        if (settings.pri === 'high' && p < 4) return false;               // 頻出（★4-5）
+        if (settings.pri === 'mid' && p !== 3) return false;              // 標準（★3）
+        if (settings.pri === 'low' && p > 2) return false;                // 低め（★1-2）
+      }
       return true;
     });
 
-    // 苦手→未マスター→マスター済みの順で優先度を付け、各グループ内はシャッフル
-    var weakG = [], freshG = [], doneG = [];
+    // 苦手→不安→未マスター→マスター済みの順、各グループ内は優先度の高い順（同順はシャッフル）
+    var weakG = [], unsureG = [], freshG = [], doneG = [];
     pool.forEach(function (q) {
-      if (isWeak(q.id)) weakG.push(q);
-      else if (isMastered(q.id)) doneG.push(q);
+      var key = keyOf(q.id, settings.mode);
+      if (isWeak(key)) weakG.push(q);
+      else if (isUnsure(key)) unsureG.push(q);
+      else if (isMastered(key)) doneG.push(q);
       else freshG.push(q);
     });
-    shuffle(weakG); shuffle(freshG); shuffle(doneG);
-    var ordered = weakG.concat(freshG, doneG);
+    var byPri = function (a, b) { return (priorityOf(b.word, b.level) || 0) - (priorityOf(a.word, a.level) || 0); };
+    [weakG, unsureG, freshG, doneG].forEach(function (g) { shuffle(g); g.sort(byPri); });
+    var ordered = weakG.concat(unsureG, freshG, doneG);
     return ordered.slice(0, QUESTIONS_PER_SESSION);
   }
 
@@ -289,15 +362,17 @@
   function grade(result) {
     var q = session.current;
     if (result !== 'skip') {
-      var h = history[q.id] || { correct: 0, wrong: 0, lastResult: null };
+      var key = keyOf(q.id, settings.mode); // 読み／書き別に記録
+      var h = history[key] || { correct: 0, unsure: 0, wrong: 0, lastResult: null };
       if (result === 'correct') h.correct = (h.correct || 0) + 1;
+      else if (result === 'unsure') h.unsure = (h.unsure || 0) + 1;
       else h.wrong = (h.wrong || 0) + 1;
       h.lastResult = result;
       h.lastAt = Date.now();
-      history[q.id] = h;
+      history[key] = h;
       writeJSON(LS_HISTORY, history);
     }
-    logDaily(result); // 日別ログに記録（correct / wrong / skip）
+    logDaily(result); // 日別ログに記録（correct / unsure / wrong / skip）
     session.graded = true;
     updateDashboard();
     nextQuestion();
@@ -317,9 +392,10 @@
     el.quiz.classList.add('hidden');
     el.controls.classList.remove('hidden');
     updateDashboard();
-    var weak = allQuestions.filter(function (q) { return isWeak(q.id); }).length;
+    var modeLabel = settings.mode === 'writing' ? '書き' : '読み';
+    var review = allQuestions.filter(function (q) { return needsReview(keyOf(q.id, settings.mode)); }).length;
     var msg = 'このセッションはおしまいです。お疲れさまでした！';
-    if (weak > 0) msg += '\n\n苦手が ' + weak + ' 語あります。「苦手のみ」で集中復習しましょう。';
+    if (review > 0) msg += '\n\n' + modeLabel + 'の苦手・不安が ' + review + ' 語あります。「苦手・不安」で集中復習しましょう。';
     setTimeout(function () { alert(msg); }, 150);
   }
 
@@ -345,23 +421,27 @@
       return;
     }
     auto.on = true;
+    auto.paused = false;
     document.body.classList.add('auto-mode');
     document.body.classList.add('quiz-active');
+    document.body.classList.remove('auto-paused');
+    $('autoIndicator').textContent = '● 自動再生中';
+    $('stopBtn').textContent = '■ 停止（この漢字で止める）';
     el.controls.classList.add('hidden');
     el.quiz.classList.remove('hidden');
     autoStep();
   }
 
   function autoStep() {
-    if (!auto.on) return;
+    if (!auto.on || auto.paused) return;
     var ms = settings.autoSpeed * 1000;
     showQuestion();                       // 問題を表示
     auto.timer = setTimeout(function () {
-      if (!auto.on) return;
+      if (!auto.on || auto.paused) return;
       revealAnswer();                     // 答え・意味・音訓を表示＋読み上げ
       logDaily('flash');                  // 自動再生（流し見）を日別ログに記録
       auto.timer = setTimeout(function () {
-        if (!auto.on) return;
+        if (!auto.on || auto.paused) return;
         session.index++;
         if (session.index >= session.queue.length) {
           // 最後まで来たら並べ替えて最初から（連続再生）
@@ -373,11 +453,46 @@
     }, ms);
   }
 
+  // 停止＝その場で一時停止。答えを表示したまま画面に留まり、内容を確認できる。
+  function pauseAuto() {
+    if (!auto.on || auto.paused) return;
+    auto.paused = true;
+    if (auto.timer) { clearTimeout(auto.timer); auto.timer = null; }
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    if (el.revealBox.classList.contains('hidden')) revealAnswer(); // 答えを見せる
+    document.body.classList.add('auto-paused');
+    $('autoIndicator').textContent = '⏸ 停止中';
+    $('stopBtn').textContent = '▶ 再開する';
+  }
+
+  function resumeAuto() {
+    if (!auto.on || !auto.paused) return;
+    auto.paused = false;
+    document.body.classList.remove('auto-paused');
+    $('autoIndicator').textContent = '● 自動再生中';
+    $('stopBtn').textContent = '■ 停止（この漢字で止める）';
+    // 次の問題へ進めて再開
+    session.index++;
+    if (session.index >= session.queue.length) {
+      session.queue = buildQueue();
+      session.index = 0;
+    }
+    autoStep();
+  }
+
+  function toggleAutoPause() {
+    if (auto.paused) resumeAuto();
+    else pauseAuto();
+  }
+
+  // ホーム／完全終了（自動再生モードを抜ける）
   function stopAuto() {
     auto.on = false;
+    auto.paused = false;
     if (auto.timer) { clearTimeout(auto.timer); auto.timer = null; }
     document.body.classList.remove('auto-mode');
     document.body.classList.remove('quiz-active');
+    document.body.classList.remove('auto-paused');
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     el.quiz.classList.add('hidden');
     el.controls.classList.remove('hidden');
@@ -483,8 +598,8 @@
     for (var i = HIST_DAYS - 1; i >= 0; i--) {
       var d = new Date(today); d.setDate(today.getDate() - i);
       var key = d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
-      var r = daily[key] || { correct: 0, wrong: 0, skip: 0, flash: 0 };
-      var solved = (r.correct || 0) + (r.wrong || 0) + (r.skip || 0);
+      var r = daily[key] || { correct: 0, unsure: 0, wrong: 0, skip: 0, flash: 0 };
+      var solved = (r.correct || 0) + (r.unsure || 0) + (r.wrong || 0) + (r.skip || 0);
       if (solved > maxSolved) maxSolved = solved;
       historyDays.push({ date: d, r: r, solved: solved });
     }
@@ -513,7 +628,8 @@
       var title = (day.date.getMonth() + 1) + '/' + day.date.getDate() +
                   ' 解答' + day.solved + (r.flash ? '・自動' + r.flash : '');
       barsHtml += '<div class="hist-bar" data-idx="' + idx + '" title="' + title + '">' +
-                  seg('seg-ok', r.correct) + seg('seg-ng', r.wrong) + seg('seg-sk', r.skip) + '</div>';
+                  seg('seg-ok', r.correct) + seg('seg-un', r.unsure) +
+                  seg('seg-ng', r.wrong) + seg('seg-sk', r.skip) + '</div>';
       monthsHtml += '<div class="hist-month-cell">' +
                     (day.date.getDate() === 1 ? (day.date.getMonth() + 1) + '月' : '') + '</div>';
     });
@@ -531,14 +647,14 @@
     var day = historyDays[idx];
     if (!day) return;
     var r = day.r;
-    var c = r.correct || 0, w = r.wrong || 0, s = r.skip || 0, f = r.flash || 0;
+    var c = r.correct || 0, u = r.unsure || 0, w = r.wrong || 0, s = r.skip || 0, f = r.flash || 0;
     var wd = ['日', '月', '火', '水', '木', '金', '土'][day.date.getDay()];
     var head = (day.date.getMonth() + 1) + '月' + day.date.getDate() + '日（' + wd + '）：';
     var txt;
-    if (c + w + s + f === 0) {
+    if (c + u + w + s + f === 0) {
       txt = head + '学習なし';
     } else {
-      txt = head + '解答 ' + (c + w + s) + '問（◯' + c + ' ✕' + w + (s ? ' −' + s : '') + '）';
+      txt = head + '解答 ' + (c + u + w + s) + '問（◯' + c + ' △' + u + ' ✕' + w + (s ? ' −' + s : '') + '）';
       if (f) txt += ' ／ 自動再生 ' + f + '枚';
     }
     $('histDetail').textContent = txt;
@@ -548,6 +664,130 @@
   }
 
   function closeHistory() { $('historyModal').classList.add('hidden'); }
+
+  // =====================================================
+  // 漢字一覧（区分の確認・変更）
+  // =====================================================
+  var SET_TO_STATUS = { correct: 'correct', unsure: 'unsure', wrong: 'weak' };
+
+  // 一覧の向き＝技能： 漢字→読み は「読み」、読み→漢字 は「書き」の区分を表示・変更する
+  function listMode() {
+    return listFilter.dir === 'rk' ? 'writing' : 'reading';
+  }
+
+  function priorityHtml(q) {
+    var p = priorityOf(q.word, q.level);
+    if (p === null) return '<div class="lpri none">優先度—</div>';
+    var s = '';
+    for (var i = 1; i <= 5; i++) {
+      s += '<button class="lstar' + (i <= p ? ' on' : '') + '" data-pri="' + i + '" title="優先度' + i + '">★</button>';
+    }
+    return '<div class="lpri" data-word="' + escapeHtml(q.word) + '">' + s + '</div>';
+  }
+
+  function listRowHtml(q, st) {
+    function btn(set, label) {
+      return '<button class="lst ' + set + (SET_TO_STATUS[set] === st ? ' active' : '') +
+             '" data-set="' + set + '">' + label + '</button>';
+    }
+    // 表示方向：kw=漢字を見せ読みを隠す（既定）／rk=読みを見せ漢字を隠す
+    var primary = listFilter.dir === 'rk' ? q.reading : q.word;
+    var secondary = listFilter.dir === 'rk' ? q.word : q.reading;
+    return '<div class="lrow" data-id="' + escapeHtml(q.id) + '">' +
+      '<div class="lrow-word">' +
+        '<span class="lw">' + escapeHtml(primary) + '</span>' +
+        '<span class="lv-badge">' + escapeHtml(q.level) + '</span>' +
+        '<button class="lreveal" data-act="reveal">確認</button>' +
+        '<span class="lr hidden">' + escapeHtml(secondary) + '</span>' +
+      '</div>' +
+      '<div class="lrow-bottom">' +
+        priorityHtml(q) +
+        '<div class="lrow-actions">' +
+          btn('correct', '正解') + btn('unsure', '不安') + btn('wrong', '苦手') +
+        '</div>' +
+      '</div></div>';
+  }
+
+  function renderList() {
+    var q = listFilter.q;
+    var mode = listMode();
+    var html = '', count = 0;
+    allQuestions.forEach(function (item) {
+      if (listFilter.level !== 'all' && item.level !== listFilter.level) return;
+      var st = statusOf(keyOf(item.id, mode));
+      if (listFilter.status !== 'all' && st !== listFilter.status) return;
+      if (listFilter.pri !== 'all') {
+        var p = priorityOf(item.word, item.level);
+        if (p === null || String(p) !== listFilter.pri) return;
+      }
+      if (q && item.word.indexOf(q) === -1 && item.reading.indexOf(q) === -1) return;
+      count++;
+      html += listRowHtml(item, st);
+    });
+    $('listRows').innerHTML = html || '<div class="list-empty">該当する語がありません。</div>';
+    $('listCount').textContent = count + ' 語';
+  }
+
+  function openList() {
+    document.body.classList.add('list-active');
+    el.controls.classList.add('hidden');
+    $('listView').classList.remove('hidden');
+    renderList();
+  }
+  function closeList() {
+    document.body.classList.remove('list-active');
+    $('listView').classList.add('hidden');
+    el.controls.classList.remove('hidden');
+    updateDashboard();
+  }
+
+  // 一覧で区分ボタンを押したとき（再タップで解除＝未に戻す）
+  function onListRowsClick(e) {
+    // 「確認」ボタン：その漢字の読みを表示／非表示
+    var rev = e.target.closest('.lreveal');
+    if (rev) {
+      var r = rev.parentNode.querySelector('.lr');
+      var nowHidden = r.classList.toggle('hidden');
+      rev.textContent = nowHidden ? '確認' : '隠す';
+      return;
+    }
+    // 優先度★の変更
+    var star = e.target.closest('.lstar');
+    if (star) {
+      var lpri = star.closest('.lpri');
+      var word = lpri.getAttribute('data-word');
+      var n = parseInt(star.getAttribute('data-pri'), 10);
+      setPriority(word, n);
+      lpri.querySelectorAll('.lstar').forEach(function (s, idx) { s.classList.toggle('on', (idx + 1) <= n); });
+      if (listFilter.pri !== 'all' && String(n) !== listFilter.pri) {
+        var prow = lpri.closest('.lrow');
+        if (prow && prow.parentNode) prow.parentNode.removeChild(prow);
+        $('listCount').textContent = $('listRows').querySelectorAll('.lrow').length + ' 語';
+      }
+      return;
+    }
+    var b = e.target.closest('.lst');
+    if (!b) return;
+    var row = b.closest('.lrow');
+    var id = row.getAttribute('data-id');
+    var key = keyOf(id, listMode()); // 現在の向き（読み／書き）に対応する記録
+    var set = b.getAttribute('data-set'); // correct / unsure / wrong
+    var h = history[key] || { correct: 0, unsure: 0, wrong: 0, lastResult: null };
+    h.lastResult = (h.lastResult === set) ? null : set;
+    h.lastAt = Date.now();
+    history[key] = h;
+    writeJSON(LS_HISTORY, history);
+
+    var st = statusOf(key);
+    row.querySelectorAll('.lst').forEach(function (x) {
+      x.classList.toggle('active', SET_TO_STATUS[x.getAttribute('data-set')] === st);
+    });
+    // 区分で絞り込み中に、その区分から外れた行は消す
+    if (listFilter.status !== 'all' && st !== listFilter.status && row.parentNode) {
+      row.parentNode.removeChild(row);
+    }
+    $('listCount').textContent = $('listRows').querySelectorAll('.lrow').length + ' 語';
+  }
 
   // =====================================================
   // ユーティリティ
@@ -575,12 +815,18 @@
   bindChipGroup('modeGroup', 'data-mode', function (v) { settings.mode = v; });
   bindChipGroup('levelGroup', 'data-level', function (v) { settings.level = v; });
   bindChipGroup('poolGroup', 'data-pool', function (v) { settings.pool = v; });
+  bindChipGroup('priGroup', 'data-pri', function (v) { settings.pri = v; });
   bindChipGroup('autoSpeedGroup', 'data-sec', function (v) { settings.autoSpeed = parseInt(v, 10) || 3; });
   bindChipGroup('autoVoiceGroup', 'data-voice', function (v) { settings.autoVoice = (v === 'on'); });
+  bindChipGroup('listDirGroup', 'data-dir', function (v) { listFilter.dir = v; renderList(); });
+  bindChipGroup('listStatusGroup', 'data-st', function (v) { listFilter.status = v; renderList(); });
+  bindChipGroup('listLevelGroup', 'data-lv', function (v) { listFilter.level = v; renderList(); });
+  bindChipGroup('listPriGroup', 'data-pri', function (v) { listFilter.pri = v; renderList(); });
 
   $('autoSpeak').addEventListener('change', function (e) { settings.autoSpeak = e.target.checked; });
   $('startBtn').addEventListener('click', startSession);
   $('autoStartBtn').addEventListener('click', startAuto);
+  $('stopBtn').addEventListener('click', toggleAutoPause);
   $('homeBtn').addEventListener('click', function () { if (auto.on) stopAuto(); else goHome(); });
   el.revealBtn.addEventListener('click', revealAnswer);
   el.speakBtn.addEventListener('click', function () { speak(readingText(session.current)); });
@@ -597,6 +843,11 @@
   el.addModal.addEventListener('click', function (e) {
     if (e.target === el.addModal) closeAdd();
   });
+
+  $('openListBtn').addEventListener('click', openList);
+  $('listHomeBtn').addEventListener('click', closeList);
+  $('listSearch').addEventListener('input', function (e) { listFilter.q = e.target.value.trim(); renderList(); });
+  $('listRows').addEventListener('click', onListRowsClick);
 
   $('openHistoryBtn').addEventListener('click', openHistory);
   $('histClose').addEventListener('click', closeHistory);

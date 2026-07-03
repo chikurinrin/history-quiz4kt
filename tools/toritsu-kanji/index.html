@@ -3,31 +3,30 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>都立高校入試 漢字マスター</title>
   <script>
-    // ===== キャッシュ対策ローダー =====================================
-    //  スマホやPCのブラウザは一度読んだファイルを保存（キャッシュ）するため、
-    //  更新してもすぐ反映されないことがあります。これを防ぐため、各ファイルに
-    //  バージョン番号 V を付けて読み込みます。
-    //
-    //  ★ 機能を改修したら、下の V を書き換えてから GitHub に上げてください。
-    //     （例: '2026-07-03a' → '2026-07-03b' のように少し変えるだけでOK）
-    //  ★ 何も考えず常に最新を読みたい場合は  var V = Date.now();  に変更。
+    // ===== 読み込み＆キャッシュ対策 ==================================
+    //  Service Worker（sw.js）を登録し、「オンライン時は常に最新を取得」します。
+    //  一度この仕組みが入った端末では、以後 GitHub に上げた更新が自動で反映されます。
+    //  （オフライン時は前回取得した内容で動作）
+    //  ※ バージョン番号の手動更新はもう不要です。
     // ================================================================
     (function () {
-      var V = '2026-07-03a';
-      // スタイルは早く当てたいので head に即時追加
+      // スタイルを head に追加
       var link = document.createElement('link');
       link.rel = 'stylesheet';
-      link.href = 'style.css?v=' + V;
+      link.href = 'style.css';
       document.head.appendChild(link);
-      // スクリプトは順番を保って読み込む（data → 辞書 → 本体）
+      // スクリプトは順番を保って読み込む（data → 各辞書 → 本体）
       function loadJS() {
-        var files = ['data.js', 'kanji-readings.js', 'word-meanings.js', 'script.js'];
+        var files = ['data.js', 'kanji-readings.js', 'word-meanings.js', 'kanji-priority.js', 'script.js'];
         (function next(i) {
           if (i >= files.length) return;
           var s = document.createElement('script');
-          s.src = files[i] + '?v=' + V;
+          s.src = files[i];
           s.onload = function () { next(i + 1); };
           s.onerror = function () { next(i + 1); };
           document.body.appendChild(s);
@@ -37,6 +36,10 @@
         document.addEventListener('DOMContentLoaded', loadJS);
       } else {
         loadJS();
+      }
+      // Service Worker 登録（オンライン時は常に最新を取得する）
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js').catch(function () {});
       }
     })();
   </script>
@@ -52,6 +55,7 @@
     <div class="stat"><span class="stat-num" id="statTotal">0</span><span class="stat-label">解答数</span></div>
     <div class="stat"><span class="stat-num" id="statCorrect">0</span><span class="stat-label">正解</span></div>
     <div class="stat"><span class="stat-num" id="statRate">0%</span><span class="stat-label">正答率</span></div>
+    <div class="stat unsure"><span class="stat-num" id="statUnsure">0</span><span class="stat-label">不安</span></div>
     <div class="stat weak"><span class="stat-num" id="statWeak">0</span><span class="stat-label">苦手</span></div>
     <div class="goal">
       <div class="total-count" id="totalCount">収録 — 語</div>
@@ -82,8 +86,18 @@
       <span class="control-label">出題範囲</span>
       <div class="btn-group" id="poolGroup">
         <button class="chip active" data-pool="all">全問</button>
-        <button class="chip" data-pool="weak">苦手のみ</button>
+        <button class="chip" data-pool="weak">苦手・不安</button>
+        <button class="chip" data-pool="weakonly">苦手だけ</button>
         <button class="chip" data-pool="unseen">未出題</button>
+      </div>
+    </div>
+    <div class="control-row">
+      <span class="control-label">頻出優先度</span>
+      <div class="btn-group" id="priGroup">
+        <button class="chip active" data-pri="all">すべて</button>
+        <button class="chip" data-pri="high">頻出(★4-5)</button>
+        <button class="chip" data-pri="mid">標準(★3)</button>
+        <button class="chip" data-pri="low">低め(★1-2)</button>
       </div>
     </div>
     <div class="control-row">
@@ -131,6 +145,11 @@
       </div>
     </div>
 
+    <!-- 自動再生中のみ表示（止めてその場で内容を確認 → 再開できる） -->
+    <div class="auto-controls" id="autoControls">
+      <button class="stop-btn" id="stopBtn">■ 停止（この漢字で止める）</button>
+    </div>
+
     <!-- 正解表示 -->
     <div class="reveal hidden" id="revealBox">
       <div class="reveal-answer">
@@ -145,10 +164,57 @@
       <p class="grade-guide">自己採点してください（履歴に残ります）</p>
       <div class="grade-actions">
         <button class="grade correct" data-grade="correct">◯ 正解</button>
-        <button class="grade wrong" data-grade="wrong">✕ 不正解</button>
+        <button class="grade unsure" data-grade="unsure">△ 不安</button>
+        <button class="grade wrong" data-grade="wrong">✕ 苦手</button>
         <button class="grade skip" data-grade="skip">− カウントしない</button>
       </div>
     </div>
+  </section>
+
+  <!-- 漢字一覧 -->
+  <section class="list-view hidden" id="listView">
+    <div class="list-top">
+      <button class="home-btn" id="listHomeBtn">← ホーム</button>
+      <span class="list-title">漢字一覧</span>
+      <span class="list-count" id="listCount"></span>
+    </div>
+    <input class="list-search" id="listSearch" type="search" placeholder="漢字・読みで検索" autocomplete="off">
+    <div class="list-filter">
+      <div class="btn-group" id="listDirGroup">
+        <button class="chip active" data-dir="kw">漢字→読み（読みの区分）</button>
+        <button class="chip" data-dir="rk">読み→漢字（書きの区分）</button>
+      </div>
+    </div>
+    <div class="list-filter">
+      <div class="btn-group" id="listStatusGroup">
+        <button class="chip active" data-st="all">すべて</button>
+        <button class="chip" data-st="correct">正解</button>
+        <button class="chip" data-st="unsure">不安</button>
+        <button class="chip" data-st="weak">苦手</button>
+        <button class="chip" data-st="new">未</button>
+      </div>
+    </div>
+    <div class="list-filter">
+      <div class="btn-group" id="listLevelGroup">
+        <button class="chip active" data-lv="all">全級</button>
+        <button class="chip" data-lv="4級">4級</button>
+        <button class="chip" data-lv="3級">3級</button>
+        <button class="chip" data-lv="準2級">準2級</button>
+        <button class="chip" data-lv="2級">2級</button>
+      </div>
+    </div>
+    <div class="list-filter">
+      <div class="btn-group" id="listPriGroup">
+        <button class="chip active" data-pri="all">優先度：全</button>
+        <button class="chip" data-pri="5">★5</button>
+        <button class="chip" data-pri="4">★4</button>
+        <button class="chip" data-pri="3">★3</button>
+        <button class="chip" data-pri="2">★2</button>
+        <button class="chip" data-pri="1">★1</button>
+      </div>
+    </div>
+    <p class="list-note">区分（正解・不安・苦手）は<b>読み・書きで別々</b>です。上の切り替えで対象が変わります。各語のボタンで変更（もう一度押すと「未」に戻る）。</p>
+    <div class="list-rows" id="listRows"></div>
   </section>
 
   <!-- 問題追加モーダル -->
@@ -196,7 +262,8 @@
       <div class="hist-detail" id="histDetail">棒をタップすると、その日の内訳が表示されます。</div>
       <div class="hist-legend">
         <span><i class="lg ok"></i>正解</span>
-        <span><i class="lg ng"></i>不正解</span>
+        <span><i class="lg un"></i>不安</span>
+        <span><i class="lg ng"></i>苦手</span>
         <span><i class="lg sk"></i>カウントしない</span>
         <span class="lg-note">（自動再生の枚数はタップで表示）</span>
       </div>
@@ -207,6 +274,7 @@
   </div>
 
   <footer class="app-footer">
+    <button class="link-btn" id="openListBtn">📖 漢字一覧</button>
     <button class="link-btn" id="openHistoryBtn">📅 学習履歴を見る</button>
     <button class="link-btn danger" id="resetBtn">学習履歴をリセット</button>
   </footer>
