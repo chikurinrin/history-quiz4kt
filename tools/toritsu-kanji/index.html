@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>都立高校入試 漢字マスター</title>
+  <script>
+    // ===== キャッシュ対策ローダー =====================================
+    //  スマホやPCのブラウザは一度読んだファイルを保存（キャッシュ）するため、
+    //  更新してもすぐ反映されないことがあります。これを防ぐため、各ファイルに
+    //  バージョン番号 V を付けて読み込みます。
+    //
+    //  ★ 機能を改修したら、下の V を書き換えてから GitHub に上げてください。
+    //     （例: '2026-07-03a' → '2026-07-03b' のように少し変えるだけでOK）
+    //  ★ 何も考えず常に最新を読みたい場合は  var V = Date.now();  に変更。
+    // ================================================================
+    (function () {
+      var V = '2026-07-03a';
+      // スタイルは早く当てたいので head に即時追加
+      var link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'style.css?v=' + V;
+      document.head.appendChild(link);
+      // スクリプトは順番を保って読み込む（data → 辞書 → 本体）
+      function loadJS() {
+        var files = ['data.js', 'kanji-readings.js', 'word-meanings.js', 'script.js'];
+        (function next(i) {
+          if (i >= files.length) return;
+          var s = document.createElement('script');
+          s.src = files[i] + '?v=' + V;
+          s.onload = function () { next(i + 1); };
+          s.onerror = function () { next(i + 1); };
+          document.body.appendChild(s);
+        })(0);
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', loadJS);
+      } else {
+        loadJS();
+      }
+    })();
+  </script>
+</head>
+<body>
+  <header class="app-header">
+    <h1>都立高校入試 漢字マスター</h1>
+    <p class="subtitle">読み・書き対応／漢検レベル別／間違い集中復習</p>
+  </header>
+
+  <!-- 学習の進み具合 -->
+  <section class="dashboard" id="dashboard">
+    <div class="stat"><span class="stat-num" id="statTotal">0</span><span class="stat-label">解答数</span></div>
+    <div class="stat"><span class="stat-num" id="statCorrect">0</span><span class="stat-label">正解</span></div>
+    <div class="stat"><span class="stat-num" id="statRate">0%</span><span class="stat-label">正答率</span></div>
+    <div class="stat weak"><span class="stat-num" id="statWeak">0</span><span class="stat-label">苦手</span></div>
+    <div class="goal">
+      <div class="total-count" id="totalCount">収録 — 語</div>
+      <div class="goal-bar"><div class="goal-fill" id="goalFill"></div></div>
+      <div class="goal-text" id="goalText">都立9割まで あと —</div>
+    </div>
+  </section>
+
+  <!-- 出題設定 -->
+  <section class="controls" id="controls">
+    <div class="control-row">
+      <span class="control-label">出題形式</span>
+      <div class="btn-group" id="modeGroup">
+        <button class="chip active" data-mode="reading">読み</button>
+        <button class="chip" data-mode="writing">書き</button>
+      </div>
+    </div>
+    <div class="control-row">
+      <span class="control-label">漢検レベル</span>
+      <div class="btn-group" id="levelGroup">
+        <button class="chip active" data-level="all">すべて</button>
+        <button class="chip" data-level="4級">4級</button>
+        <button class="chip" data-level="3級">3級</button>
+        <button class="chip" data-level="準2級">準2級</button>
+      </div>
+    </div>
+    <div class="control-row">
+      <span class="control-label">出題範囲</span>
+      <div class="btn-group" id="poolGroup">
+        <button class="chip active" data-pool="all">全問</button>
+        <button class="chip" data-pool="weak">苦手のみ</button>
+        <button class="chip" data-pool="unseen">未出題</button>
+      </div>
+    </div>
+    <div class="control-row">
+      <label class="toggle">
+        <input type="checkbox" id="autoSpeak"> 出題時に自動で読み上げる
+      </label>
+      <button class="link-btn" id="openAddBtn">＋ 問題を追加</button>
+    </div>
+    <div class="control-row">
+      <span class="control-label">自動再生の速さ</span>
+      <div class="btn-group" id="autoSpeedGroup">
+        <button class="chip" data-sec="2">速い（2秒）</button>
+        <button class="chip active" data-sec="3">標準（3秒）</button>
+        <button class="chip" data-sec="5">ゆっくり（5秒）</button>
+      </div>
+    </div>
+    <div class="control-row">
+      <span class="control-label">自動再生の音声</span>
+      <div class="btn-group" id="autoVoiceGroup">
+        <button class="chip active" data-voice="on">🔊 音声あり</button>
+        <button class="chip" data-voice="off">🔇 音声なし</button>
+      </div>
+    </div>
+    <button class="start-btn" id="startBtn">学習をはじめる</button>
+    <button class="auto-btn" id="autoStartBtn">▶ 自動再生（手を動かさず確認）</button>
+  </section>
+
+  <!-- 問題カード -->
+  <section class="quiz hidden" id="quiz">
+    <div class="quiz-top">
+      <button class="home-btn" id="homeBtn">← ホーム</button>
+      <span class="badge" id="qLevel">3級</span>
+      <span class="badge mode" id="qMode">読み</span>
+      <span class="auto-indicator" id="autoIndicator">● 自動再生中</span>
+      <span class="progress" id="qProgress">1 / 20</span>
+    </div>
+
+    <p class="prompt" id="qPrompt">次の傍線部の読みをひらがなで答えなさい。</p>
+    <p class="sentence" id="qSentence"></p>
+
+    <div class="answer-area" id="answerArea">
+      <input type="text" id="answerInput" placeholder="答えを入力（任意）" autocomplete="off">
+      <div class="quiz-actions">
+        <button class="speak-btn" id="speakBtn" title="読み上げ">🔊 読み上げ</button>
+        <button class="reveal-btn" id="revealBtn">答えを見る</button>
+      </div>
+    </div>
+
+    <!-- 正解表示 -->
+    <div class="reveal hidden" id="revealBox">
+      <div class="reveal-answer">
+        <span class="reveal-label">正解</span>
+        <span class="reveal-word" id="revealWord"></span>
+        <span class="reveal-reading" id="revealReading"></span>
+        <button class="speak-mini" id="speakAnswerBtn" title="読み上げ">🔊</button>
+      </div>
+      <div class="reveal-your hidden" id="yourAnswer"></div>
+      <div class="word-meaning hidden" id="wordMeaning"></div>
+      <div class="kanji-refs hidden" id="kanjiRefs"></div>
+      <div class="reveal-hint" id="revealHint"></div>
+      <p class="grade-guide">自己採点してください（履歴に残ります）</p>
+      <div class="grade-actions">
+        <button class="grade correct" data-grade="correct">◯ 正解</button>
+        <button class="grade wrong" data-grade="wrong">✕ 不正解</button>
+        <button class="grade skip" data-grade="skip">− カウントしない</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 問題追加モーダル -->
+  <div class="modal-backdrop hidden" id="addModal">
+    <div class="modal">
+      <h2>問題を追加</h2>
+      <label>語（漢字）<input type="text" id="addWord" placeholder="例：把握"></label>
+      <label>読み（ひらがな）<input type="text" id="addReading" placeholder="例：はあく"></label>
+      <label>例文（対象語を { } で囲む）<input type="text" id="addSentence" placeholder="例：状況を{把握}する。"></label>
+      <label>漢検レベル
+        <select id="addLevel">
+          <option value="4級">4級</option>
+          <option value="3級" selected>3級</option>
+          <option value="準2級">準2級</option>
+          <option value="2級">2級</option>
+        </select>
+      </label>
+      <label>覚え方のヒント（任意）<input type="text" id="addHint" placeholder="例：どちらも手でにぎる意味"></label>
+      <p class="modal-error hidden" id="addError"></p>
+      <div class="modal-actions">
+        <button class="modal-cancel" id="addCancel">キャンセル</button>
+        <button class="modal-save" id="addSave">追加する</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 学習履歴モーダル -->
+  <div class="modal-backdrop hidden" id="historyModal">
+    <div class="modal">
+      <h2>学習履歴</h2>
+      <div class="hist-summary" id="histSummary"></div>
+      <p class="hist-caption">日ごとの解答数（過去約6か月）　※縦軸＝問数</p>
+      <div class="hist-chart-outer">
+        <div class="hist-yaxis" id="histYAxis"></div>
+        <div class="hist-chart-wrap" id="histChartWrap">
+          <div class="hist-chart-inner">
+            <div class="hist-plot">
+              <div class="hist-grid" id="histGrid"></div>
+              <div class="hist-bars" id="histBars"></div>
+            </div>
+            <div class="hist-months" id="histMonths"></div>
+          </div>
+        </div>
+      </div>
+      <div class="hist-detail" id="histDetail">棒をタップすると、その日の内訳が表示されます。</div>
+      <div class="hist-legend">
+        <span><i class="lg ok"></i>正解</span>
+        <span><i class="lg ng"></i>不正解</span>
+        <span><i class="lg sk"></i>カウントしない</span>
+        <span class="lg-note">（自動再生の枚数はタップで表示）</span>
+      </div>
+      <div class="modal-actions">
+        <button class="modal-cancel" id="histClose">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="app-footer">
+    <button class="link-btn" id="openHistoryBtn">📅 学習履歴を見る</button>
+    <button class="link-btn danger" id="resetBtn">学習履歴をリセット</button>
+  </footer>
+
+  <!-- data.js / kanji-readings.js / word-meanings.js / script.js は
+       <head> のキャッシュ対策ローダーがバージョン付きで読み込みます。 -->
+</body>
+</html>
