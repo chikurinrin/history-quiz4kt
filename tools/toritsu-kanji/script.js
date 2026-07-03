@@ -790,6 +790,62 @@
   }
 
   // =====================================================
+  // データのエクスポート／インポート（端末移行用）
+  // =====================================================
+  function exportData() {
+    var payload = {
+      app: 'toritsu-kanji',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      history: readJSON(LS_HISTORY, {}),   // 成績・区分（読み書き別）
+      custom: readJSON(LS_CUSTOM, []),     // 追加した問題
+      daily: readJSON(LS_DAILY, {}),       // 日別の学習量
+      priority: readJSON(LS_PRIORITY, {})  // 優先度の編集
+    };
+    var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'toritsu-kanji-backup-' + todayKey() + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
+  function importData(file) {
+    var reader = new FileReader();
+    reader.onload = function () {
+      var data;
+      try { data = JSON.parse(reader.result); }
+      catch (e) { alert('読み込めませんでした（JSON形式のバックアップファイルを選んでください）。'); return; }
+      if (!data || typeof data !== 'object' ||
+          !(data.history || data.custom || data.daily || data.priority)) {
+        alert('このアプリのバックアップファイルではないようです。'); return;
+      }
+      if (!confirm('バックアップを取り込みます。\n現在のデータと統合し、同じ項目は取り込んだ内容で上書きします。よろしいですか？')) return;
+
+      // 追加問題：重複（語＋読み）を避けて統合
+      var cur = readJSON(LS_CUSTOM, []);
+      var have = {};
+      cur.forEach(function (q) { if (q && q.word) have[q.word + '|' + q.reading] = true; });
+      (data.custom || []).forEach(function (q) {
+        if (q && q.word && q.reading && !have[q.word + '|' + q.reading]) cur.push(q);
+      });
+      writeJSON(LS_CUSTOM, cur);
+
+      // 成績・日別・優先度：同じキーは取り込み側で上書き
+      var h = readJSON(LS_HISTORY, {}); Object.assign(h, data.history || {}); writeJSON(LS_HISTORY, h);
+      var d = readJSON(LS_DAILY, {}); Object.assign(d, data.daily || {}); writeJSON(LS_DAILY, d);
+      var p = readJSON(LS_PRIORITY, {}); Object.assign(p, data.priority || {}); writeJSON(LS_PRIORITY, p);
+
+      alert('取り込みました。画面を更新します。');
+      location.reload();
+    };
+    reader.readAsText(file);
+  }
+
+  // =====================================================
   // ユーティリティ
   // =====================================================
   function escapeHtml(s) {
@@ -848,6 +904,13 @@
   $('listHomeBtn').addEventListener('click', closeList);
   $('listSearch').addEventListener('input', function (e) { listFilter.q = e.target.value.trim(); renderList(); });
   $('listRows').addEventListener('click', onListRowsClick);
+
+  $('exportBtn').addEventListener('click', exportData);
+  $('importBtn').addEventListener('click', function () { $('importFile').click(); });
+  $('importFile').addEventListener('change', function (e) {
+    if (e.target.files && e.target.files[0]) importData(e.target.files[0]);
+    e.target.value = ''; // 同じファイルを再選択できるように
+  });
 
   $('openHistoryBtn').addEventListener('click', openHistory);
   $('histClose').addEventListener('click', closeHistory);
