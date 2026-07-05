@@ -80,6 +80,22 @@
         <button class="chip" data-level="4級">4級</button>
         <button class="chip" data-level="3級">3級</button>
         <button class="chip" data-level="準2級">準2級</button>
+        <button class="chip" data-level="2級">2級</button>
+        <button class="chip" data-level="準1級">準1級</button>
+        <button class="chip" data-level="四字熟語">四字熟語</button>
+      </div>
+    </div>
+    <div class="control-row group-row">
+      <span class="control-label">グループ<br>進捗・範囲</span>
+      <div class="group-panel" id="groupPanel"></div>
+    </div>
+    <div class="control-row">
+      <span class="control-label">難読カテゴリ</span>
+      <div class="btn-group" id="catGroup">
+        <button class="chip active" data-cat="all">指定なし</button>
+        <button class="chip" data-cat="特殊音">特殊な音読み</button>
+        <button class="chip" data-cat="熟字訓">熟字訓</button>
+        <button class="chip" data-cat="難訓">難読の訓</button>
       </div>
     </div>
     <div class="control-row">
@@ -201,6 +217,8 @@
         <button class="chip" data-lv="3級">3級</button>
         <button class="chip" data-lv="準2級">準2級</button>
         <button class="chip" data-lv="2級">2級</button>
+        <button class="chip" data-lv="準1級">準1級</button>
+        <button class="chip" data-lv="四字熟語">四字熟語</button>
       </div>
     </div>
     <div class="list-filter">
@@ -230,6 +248,8 @@
           <option value="3級" selected>3級</option>
           <option value="準2級">準2級</option>
           <option value="2級">2級</option>
+          <option value="準1級">準1級</option>
+          <option value="四字熟語">四字熟語</option>
         </select>
       </label>
       <label>覚え方のヒント（任意）<input type="text" id="addHint" placeholder="例：どちらも手でにぎる意味"></label>

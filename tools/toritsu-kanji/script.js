@@ -14,9 +14,12 @@
   var LS_CUSTOM  = 'toritsu-kanji.custom.v1';  // ユーザー追加問題の配列
   var LS_DAILY   = 'toritsu-kanji.daily.v1';   // 日別の学習量 { 'YYYY-MM-DD': {correct,wrong,skip,flash} }
   var LS_PRIORITY = 'toritsu-kanji.priority.v1'; // 優先度のユーザー編集 { word: 1..5 }
+  var LS_GROUPS = 'toritsu-kanji.groups.v1';   // 出題対象に選んだグループ { level: { groupIndex: true } }
   var GOAL_RATE  = 0.9;                        // 都立9割目標
   var MASTER_HITS = 2;                         // 連続正解でマスター扱いにする回数
   var QUESTIONS_PER_SESSION = 20;
+  var GROUP_SIZE = 50;                          // 1グループの語数（頻出度順に分割）
+  var LEVELS = ['4級', '3級', '準2級', '2級', '準1級', '四字熟語'];
 
   // ---- 一意なIDを語＋読みから生成（追加問題と重複しない安定キー） ----
   function makeId(q) {
@@ -50,6 +53,7 @@
   var history = readJSON(LS_HISTORY, {});
   var daily = readJSON(LS_DAILY, {});
   var userPri = readJSON(LS_PRIORITY, {});
+  var groupSel = readJSON(LS_GROUPS, {});
   var allQuestions = loadAllQuestions();
 
   // 優先度（5=最頻出 … 1=まれ）。3級・準2級のみ。編集値 > 既定データ > ★3。
@@ -110,7 +114,7 @@
   }
 
   // ---- 状態 ----
-  var settings = { mode: 'reading', level: 'all', pool: 'all', pri: 'all', autoSpeak: false, autoSpeed: 3, autoVoice: true };
+  var settings = { mode: 'reading', level: 'all', cat: 'all', pool: 'all', pri: 'all', autoSpeak: false, autoSpeed: 3, autoVoice: true };
   var session = { queue: [], index: 0, current: null, graded: false };
   var auto = { on: false, paused: false, timer: null };
   var listFilter = { status: 'all', level: 'all', q: '', dir: 'kw', pri: 'all' }; // dir: kw=漢字→読み / rk=読み→漢字
@@ -214,9 +218,16 @@
   // =====================================================
   function buildQueue() {
     // 現在の出題形式（読み／書き）に対応する記録キーで判定する
+    var useGroups = anyGroupChecked();
     var pool = allQuestions.filter(function (q) {
       var key = keyOf(q.id, settings.mode);
-      if (settings.level !== 'all' && q.level !== settings.level) return false;
+      if (useGroups) {
+        // グループを選んでいるときは、その範囲を出題対象にする（レベル選択より優先）
+        if (!isGroupChecked(q.level, q._gi)) return false;
+      } else if (settings.level !== 'all' && q.level !== settings.level) {
+        return false;
+      }
+      if (settings.cat !== 'all' && q.cat !== settings.cat) return false;
       if (settings.pool === 'weak' && !needsReview(key)) return false;     // 苦手＋不安
       if (settings.pool === 'weakonly' && !isWeak(key)) return false;      // 苦手だけ
       if (settings.pool === 'unseen' && history[key]) return false;
@@ -274,7 +285,7 @@
     session.graded = false;
     var q = session.current;
 
-    el.qLevel.textContent = '漢検 ' + q.level;
+    el.qLevel.textContent = q.level === '四字熟語' ? '四字熟語' : '漢検 ' + q.level;
     el.qMode.textContent = settings.mode === 'reading' ? '読み' : '書き';
     el.qProgress.textContent = (session.index + 1) + ' / ' + session.queue.length;
 
@@ -405,6 +416,7 @@
     document.body.classList.remove('quiz-active');
     el.quiz.classList.add('hidden');
     el.controls.classList.remove('hidden');
+    renderGroupPanel();
     updateDashboard();
   }
 
@@ -552,6 +564,9 @@
     writeJSON(LS_CUSTOM, custom);
 
     allQuestions.push(newQ);
+    questionIndex = null; // 逆引きを作り直す
+    computeGroups();
+    renderGroupPanel();
     updateDashboard();
     el.addWord.value = el.addReading.value = el.addSentence.value = el.addHint.value = '';
     closeAdd();
@@ -708,6 +723,30 @@
       '</div></div>';
   }
 
+  // id → 問題の逆引き（クリックのたびの全件走査を避ける）
+  var questionIndex = null;
+  function questionById(id) {
+    if (!questionIndex) {
+      questionIndex = {};
+      allQuestions.forEach(function (q) { questionIndex[q.id] = q; });
+    }
+    return questionIndex[id] || null;
+  }
+
+  // 「確認」で開く詳細（意味・例文・覚え方）。辞書に無い項目は行ごと省く。
+  // ※ 全行に事前生成するとDOMが巨大化して重くなるため、開いた行だけ遅延生成する。
+  function listDetailHtml(q) {
+    var meaning = (window.WORD_MEANINGS || {})[q.word];
+    // 例文は { } を外して対象語を強調表示
+    var sent = escapeHtml(q.sentence).replace(/\{([^}]*)\}/, '<b class="ld-target">$1</b>');
+    var html = '<div class="ldetail">';
+    if (meaning) html += '<div class="ld-line"><span class="ld-label">意味</span>' + escapeHtml(meaning) + '</div>';
+    html += '<div class="ld-line"><span class="ld-label">例文</span>' + sent + '</div>';
+    if (q.hint) html += '<div class="ld-line"><span class="ld-label">覚え方</span>' + escapeHtml(q.hint) + '</div>';
+    html += '</div>';
+    return html;
+  }
+
   function renderList() {
     var q = listFilter.q;
     var mode = listMode();
@@ -743,11 +782,20 @@
 
   // 一覧で区分ボタンを押したとき（再タップで解除＝未に戻す）
   function onListRowsClick(e) {
-    // 「確認」ボタン：その漢字の読みを表示／非表示
+    // 「確認」ボタン：読みと詳細（意味・例文・覚え方）を表示／非表示
     var rev = e.target.closest('.lreveal');
     if (rev) {
       var r = rev.parentNode.querySelector('.lr');
       var nowHidden = r.classList.toggle('hidden');
+      var lrow = rev.closest('.lrow');
+      var det = lrow.querySelector('.ldetail');
+      if (!det && !nowHidden) {
+        // 初めて開くときにその行だけ詳細を生成（全行事前生成は重いため）
+        var q = questionById(lrow.getAttribute('data-id'));
+        if (q) lrow.querySelector('.lrow-word').insertAdjacentHTML('afterend', listDetailHtml(q));
+      } else if (det) {
+        det.classList.toggle('hidden', nowHidden);
+      }
       rev.textContent = nowHidden ? '確認' : '隠す';
       return;
     }
@@ -868,8 +916,9 @@
     });
   }
 
-  bindChipGroup('modeGroup', 'data-mode', function (v) { settings.mode = v; });
-  bindChipGroup('levelGroup', 'data-level', function (v) { settings.level = v; });
+  bindChipGroup('modeGroup', 'data-mode', function (v) { settings.mode = v; renderGroupPanel(); });
+  bindChipGroup('levelGroup', 'data-level', function (v) { settings.level = v; renderGroupPanel(); });
+  bindChipGroup('catGroup', 'data-cat', function (v) { settings.cat = v; });
   bindChipGroup('poolGroup', 'data-pool', function (v) { settings.pool = v; });
   bindChipGroup('priGroup', 'data-pri', function (v) { settings.pri = v; });
   bindChipGroup('autoSpeedGroup', 'data-sec', function (v) { settings.autoSpeed = parseInt(v, 10) || 3; });
@@ -902,7 +951,13 @@
 
   $('openListBtn').addEventListener('click', openList);
   $('listHomeBtn').addEventListener('click', closeList);
-  $('listSearch').addEventListener('input', function (e) { listFilter.q = e.target.value.trim(); renderList(); });
+  // 検索は入力が落ち着いてから再描画（1文字ごとの全再描画は重い）
+  var listSearchTimer = null;
+  $('listSearch').addEventListener('input', function (e) {
+    var v = e.target.value.trim();
+    clearTimeout(listSearchTimer);
+    listSearchTimer = setTimeout(function () { listFilter.q = v; renderList(); }, 150);
+  });
   $('listRows').addEventListener('click', onListRowsClick);
 
   $('exportBtn').addEventListener('click', exportData);
@@ -932,6 +987,133 @@
     }
   });
 
+  // =====================================================
+  // グループ別 進捗・出題範囲
+  //  各級を頻出度（優先度）の高い順に並べ、GROUP_SIZE 語ずつのグループに分ける。
+  //  グループ①ほど頻出。各グループの習得状況を横棒グラフで表示し、
+  //  チェックボックスで出題対象の範囲を選べる。
+  // =====================================================
+  var groupsByLevel = {};
+
+  function freqScore(q) {
+    var p = priorityOf(q.word, q.level);
+    return (p == null) ? 3 : p;
+  }
+  function computeGroups() {
+    groupsByLevel = {};
+    var byLevel = {};
+    allQuestions.forEach(function (q) {
+      (byLevel[q.level] = byLevel[q.level] || []).push(q);
+    });
+    Object.keys(byLevel).forEach(function (lv) {
+      // 頻出度の高い順（同点は元の並び順）に安定ソート
+      var sorted = byLevel[lv]
+        .map(function (q, i) { return { q: q, i: i, f: freqScore(q) }; })
+        .sort(function (a, b) { return b.f - a.f || a.i - b.i; })
+        .map(function (o) { return o.q; });
+      var groups = [];
+      sorted.forEach(function (q, i) {
+        var gi = Math.floor(i / GROUP_SIZE);
+        q._gi = gi;
+        (groups[gi] = groups[gi] || []).push(q);
+      });
+      groupsByLevel[lv] = groups;
+    });
+  }
+
+  function anyGroupChecked() {
+    return Object.keys(groupSel).some(function (lv) {
+      var s = groupSel[lv];
+      return s && Object.keys(s).some(function (k) { return s[k]; });
+    });
+  }
+  function isGroupChecked(lv, gi) {
+    return !!(groupSel[lv] && groupSel[lv][gi]);
+  }
+  function setGroupChecked(lv, gi, on) {
+    if (!groupSel[lv]) groupSel[lv] = {};
+    if (on) groupSel[lv][gi] = true; else delete groupSel[lv][gi];
+    writeJSON(LS_GROUPS, groupSel);
+  }
+
+  // 現在の出題形式（読み／書き）でのグループ習得状況
+  function groupStats(items) {
+    var mastered = 0, touched = 0;
+    items.forEach(function (q) {
+      var key = keyOf(q.id, settings.mode);
+      if (isMastered(key)) mastered++;
+      else if (history[key]) touched++; // 学習済み（未マスター）
+    });
+    return { total: items.length, mastered: mastered, touched: touched };
+  }
+
+  function circleNum(n) {
+    var c = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳';
+    return n <= 20 ? c.charAt(n - 1) : '(' + n + ')';
+  }
+
+  function renderGroupPanel() {
+    var host = $('groupPanel');
+    if (!host) return;
+    var modeLabel = settings.mode === 'writing' ? '書き' : '読み';
+    var active = anyGroupChecked();
+    // 選択中は全級を表示（選んだ範囲が一望できるように）。未選択ならレベル選択に追従。
+    var levelsToShow = (active || settings.level === 'all') ? LEVELS : [settings.level];
+    var html = '';
+    html += '<div class="grp-head">'
+      + '<span class="grp-mode">進捗：' + modeLabel + '（■習得／▨学習中）</span>'
+      + '<span class="grp-note">' + (active
+        ? '✔ チェックした範囲を出題（レベル選択より優先）'
+        : 'チェックで出題範囲を指定できます') + '</span>'
+      + '</div>';
+
+    levelsToShow.forEach(function (L) {
+      var groups = groupsByLevel[L] || [];
+      if (!groups.length) return;
+      html += '<div class="grp-level">';
+      html += '<div class="grp-level-head"><b>' + L + '</b>'
+        + '<button type="button" class="grp-all" data-lv="' + L + '" data-act="all">全選択</button>'
+        + '<button type="button" class="grp-all" data-lv="' + L + '" data-act="none">解除</button></div>';
+      groups.forEach(function (items, gi) {
+        var st = groupStats(items);
+        var mPct = Math.round(st.mastered / st.total * 100);
+        var tPct = Math.round((st.mastered + st.touched) / st.total * 100);
+        var lo = gi * GROUP_SIZE + 1, hi = gi * GROUP_SIZE + st.total;
+        var checked = isGroupChecked(L, gi);
+        html += '<label class="grp-row">'
+          + '<input type="checkbox" class="grp-cb" data-lv="' + L + '" data-gi="' + gi + '"' + (checked ? ' checked' : '') + '>'
+          + '<span class="grp-name">' + circleNum(gi + 1) + '<small>' + lo + '–' + hi + '</small></span>'
+          + '<span class="grp-bar" title="' + st.mastered + ' / ' + st.total + ' 習得">'
+          + '<i class="seg-t" style="width:' + tPct + '%"></i>'
+          + '<i class="seg-m" style="width:' + mPct + '%"></i></span>'
+          + '<span class="grp-val">' + st.mastered + '/' + st.total + '</span>'
+          + '</label>';
+      });
+      html += '</div>';
+    });
+    host.innerHTML = html;
+  }
+
+  $('groupPanel').addEventListener('change', function (e) {
+    var cb = e.target.closest('.grp-cb');
+    if (!cb) return;
+    setGroupChecked(cb.getAttribute('data-lv'), parseInt(cb.getAttribute('data-gi'), 10), cb.checked);
+  });
+  $('groupPanel').addEventListener('click', function (e) {
+    var btn = e.target.closest('.grp-all');
+    if (!btn) return;
+    var lv = btn.getAttribute('data-lv');
+    var groups = groupsByLevel[lv] || [];
+    if (btn.getAttribute('data-act') === 'all') {
+      groups.forEach(function (g, gi) { setGroupChecked(lv, gi, true); });
+    } else {
+      groups.forEach(function (g, gi) { setGroupChecked(lv, gi, false); });
+    }
+    renderGroupPanel();
+  });
+
   // 初期化
+  computeGroups();
+  renderGroupPanel();
   updateDashboard();
 })();
