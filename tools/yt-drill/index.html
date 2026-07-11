@@ -3,7 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>一問一答ドリル｜間違えたところだけ流す</title>
+<script>
+  // Service Worker（sw.js）を登録し、オンライン時は常に最新を取得する。
+  // 一度この仕組みが入った端末では、以後 GitHub に上げた更新が自動で反映される。
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(function () {});
+  }
+</script>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
