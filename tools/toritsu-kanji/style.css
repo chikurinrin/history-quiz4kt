@@ -13,6 +13,39 @@
   --line: #e2e8f0;
   --radius: 14px;
   --shadow: 0 6px 20px rgba(15, 23, 42, .08);
+  /* 面の色（ダークモードで切り替え） */
+  --chip-bg: #fff;
+  --panel: #fbfcfe;
+  --soft: #f8fafc;
+  --badge-bg: #eef2ff;
+  --hover-bg: #eff6ff;
+  --hover-line: #bfdbfe;
+  --hint-bg: #fffbeb;
+  --hint-line: #fde68a;
+  --seg-touched: #bbf7d0;
+  --hist-base: #eef1f6;
+}
+
+/* ダークモード（html の data-theme 属性で切替。初期値は OS 設定に追従） */
+:root[data-theme="dark"] {
+  --bg: #0f172a;
+  --card: #1e293b;
+  --ink: #e2e8f0;
+  --sub: #94a3b8;
+  --brand: #3b82f6;
+  --brand-dark: #93c5fd;
+  --line: #334155;
+  --shadow: 0 6px 20px rgba(0, 0, 0, .45);
+  --chip-bg: #273549;
+  --panel: #1a2434;
+  --soft: #16202f;
+  --badge-bg: #1e3a5f;
+  --hover-bg: #1e3a5f;
+  --hover-line: #33507a;
+  --hint-bg: #382f14;
+  --hint-line: #6b5518;
+  --seg-touched: #14532d;
+  --hist-base: #263041;
 }
 
 * { box-sizing: border-box; }
@@ -70,6 +103,7 @@ section, .modal {
 }
 .stat.weak .stat-num { color: var(--weak); }
 .stat.unsure .stat-num { color: var(--unsure); }
+.stat.due .stat-num { color: var(--brand-dark); }
 .goal {
   grid-column: 1 / -1;
   margin-top: 6px;
@@ -134,7 +168,7 @@ section, .modal {
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 8px 10px;
-  background: #fbfcfe;
+  background: var(--panel);
 }
 .grp-head {
   display: flex;
@@ -156,7 +190,7 @@ section, .modal {
 }
 .grp-all {
   border: 1px solid var(--line);
-  background: #fff;
+  background: var(--chip-bg);
   color: var(--sub);
   border-radius: 999px;
   font-size: .68rem;
@@ -172,7 +206,7 @@ section, .modal {
   cursor: pointer;
   border-radius: 6px;
 }
-.grp-row:hover { background: #eef2ff; }
+.grp-row:hover { background: var(--badge-bg); }
 .grp-cb { width: 16px; height: 16px; flex-shrink: 0; accent-color: var(--brand); cursor: pointer; }
 .grp-name {
   width: 74px;
@@ -200,7 +234,7 @@ section, .modal {
   border-radius: 999px;
   transition: width .3s ease;
 }
-.grp-bar .seg-t { background: #bbf7d0; }
+.grp-bar .seg-t { background: var(--seg-touched); }
 .grp-bar .seg-m { background: linear-gradient(90deg, var(--brand), var(--ok)); }
 .grp-val {
   width: 50px;
@@ -212,7 +246,7 @@ section, .modal {
 }
 .chip {
   border: 1px solid var(--line);
-  background: #fff;
+  background: var(--chip-bg);
   color: var(--ink);
   padding: 6px 14px;
   border-radius: 999px;
@@ -260,7 +294,7 @@ section, .modal {
   width: 100%;
   margin-top: 10px;
   border: 1px solid var(--brand);
-  background: #fff;
+  background: var(--chip-bg);
   color: var(--brand);
   font-size: 1rem;
   font-weight: 600;
@@ -269,7 +303,7 @@ section, .modal {
   cursor: pointer;
   transition: .15s;
 }
-.auto-btn:hover { background: #eff6ff; }
+.auto-btn:hover { background: var(--hover-bg); }
 
 /* 自動再生モード */
 .auto-indicator {
@@ -319,7 +353,7 @@ body.auto-paused .auto-indicator { color: var(--sub); animation: none; }
 }
 .home-btn {
   border: 1px solid var(--line);
-  background: #fff;
+  background: var(--chip-bg);
   color: var(--sub);
   font-size: .78rem;
   padding: 4px 12px;
@@ -329,7 +363,7 @@ body.auto-paused .auto-indicator { color: var(--sub); animation: none; }
 }
 .home-btn:hover { border-color: var(--brand); color: var(--brand); }
 .badge {
-  background: #eef2ff;
+  background: var(--badge-bg);
   color: var(--brand-dark);
   font-size: .74rem;
   font-weight: 600;
@@ -379,7 +413,7 @@ body.auto-paused .auto-indicator { color: var(--sub); animation: none; }
 .speak-btn {
   flex: 0 0 auto;
   border: 1px solid var(--line);
-  background: #fff;
+  background: var(--chip-bg);
   padding: 12px 16px;
   border-radius: 10px;
   cursor: pointer;
@@ -421,7 +455,7 @@ body.auto-paused .auto-indicator { color: var(--sub); animation: none; }
 .reveal-reading { font-size: 1.1rem; color: var(--sub); }
 .speak-mini {
   border: 1px solid var(--line);
-  background: #fff;
+  background: var(--chip-bg);
   border-radius: 8px;
   cursor: pointer;
   padding: 4px 8px;
@@ -434,8 +468,8 @@ body.auto-paused .auto-indicator { color: var(--sub); animation: none; }
 .reveal-your.wrong { color: var(--ng); }
 .word-meaning {
   margin-top: 12px;
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
+  background: var(--hover-bg);
+  border: 1px solid var(--hover-line);
   border-radius: 10px;
   padding: 10px 14px;
   font-size: .9rem;
@@ -458,7 +492,7 @@ body.auto-paused .auto-indicator { color: var(--sub); animation: none; }
   border-radius: 10px;
   padding: 6px 10px;
   font-size: .82rem;
-  background: #f8fafc;
+  background: var(--soft);
   line-height: 1.5;
 }
 .kanji-ref .kr-char {
@@ -472,8 +506,8 @@ body.auto-paused .auto-indicator { color: var(--sub); animation: none; }
 
 .reveal-hint {
   margin-top: 12px;
-  background: #fffbeb;
-  border: 1px solid #fde68a;
+  background: var(--hint-bg);
+  border: 1px solid var(--hint-line);
   border-radius: 10px;
   padding: 10px 14px;
   font-size: .9rem;
@@ -515,7 +549,7 @@ body.auto-paused .auto-indicator { color: var(--sub); animation: none; }
   z-index: 50;
 }
 .modal {
-  background: #fff;
+  background: var(--chip-bg);
   border-radius: var(--radius);
   padding: 22px;
   width: 100%;
@@ -566,7 +600,7 @@ body.auto-paused .auto-indicator { color: var(--sub); animation: none; }
 .hist-summary .hs-item {
   flex: 1 1 30%;
   text-align: center;
-  background: #f8fafc;
+  background: var(--soft);
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 8px 4px;
@@ -586,7 +620,7 @@ body.auto-paused .auto-indicator { color: var(--sub); animation: none; }
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 8px;
-  background: #fcfdff;
+  background: var(--panel);
 }
 .hist-yaxis {
   position: relative;
@@ -631,7 +665,7 @@ body.auto-paused .auto-indicator { color: var(--sub); animation: none; }
   display: flex;
   flex-direction: column-reverse; /* 先頭に積んだ要素が下になる */
   cursor: pointer;
-  background: #eef1f6;            /* 未学習日のうっすらした土台 */
+  background: var(--hist-base);            /* 未学習日のうっすらした土台 */
   min-height: 2px;
 }
 .hist-bar.active { outline: 2px solid var(--brand); outline-offset: 1px; }
@@ -763,17 +797,17 @@ body.list-active .app-footer { display: none; }
 .lrow-word .lr { font-size: .95rem; color: var(--brand-dark); font-weight: 600; }
 .lreveal {
   border: 1px solid var(--brand);
-  background: #fff;
+  background: var(--chip-bg);
   color: var(--brand);
   font-size: .72rem;
   padding: 3px 9px;
   border-radius: 8px;
   cursor: pointer;
 }
-.lreveal:hover { background: #eff6ff; }
+.lreveal:hover { background: var(--hover-bg); }
 .lrow-word .lv-badge {
   font-size: .66rem;
-  background: #eef2ff;
+  background: var(--badge-bg);
   color: var(--brand-dark);
   padding: 1px 6px;
   border-radius: 999px;
@@ -782,7 +816,7 @@ body.list-active .app-footer { display: none; }
 
 /* 「確認」で開く詳細（意味・例文・覚え方） */
 .ldetail {
-  background: #f8fafc;
+  background: var(--soft);
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 8px 10px;
@@ -798,7 +832,7 @@ body.list-active .app-footer { display: none; }
 .ld-label {
   display: inline-block;
   flex-shrink: 0;
-  background: #eef2ff;
+  background: var(--badge-bg);
   color: var(--brand-dark);
   font-size: .66rem;
   padding: 1px 7px;
@@ -807,9 +841,105 @@ body.list-active .app-footer { display: none; }
   vertical-align: 1px;
 }
 .ld-target { color: var(--brand-dark); }
+
+/* 今日の復習ボタン */
+.due-btn {
+  display: block;
+  width: 100%;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(90deg, var(--unsure), var(--weak));
+  color: #fff;
+  font-size: .95rem;
+  font-weight: 700;
+  padding: 12px;
+  margin-bottom: 14px;
+  cursor: pointer;
+}
+.due-btn:hover { filter: brightness(1.06); }
+
+/* 成績分析 */
+.stats-h {
+  font-size: .8rem;
+  font-weight: 700;
+  color: var(--sub);
+  margin: 12px 0 4px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 3px;
+}
+.st-row { display: flex; gap: 8px; padding: 6px 0; border-bottom: 1px dashed var(--line); }
+.st-label { width: 92px; flex-shrink: 0; font-size: .85rem; font-weight: 700; padding-top: 2px; }
+.st-cells { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.st-cell { display: flex; align-items: center; gap: 7px; }
+.st-mode {
+  flex-shrink: 0;
+  width: 20px; height: 20px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--badge-bg); color: var(--brand-dark);
+  border-radius: 6px; font-size: .7rem; font-weight: 700;
+}
+.st-cell .grp-bar { flex: 1; }
+.st-num { width: 66px; text-align: right; font-size: .74rem; color: var(--sub); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+.st-rate { width: 70px; text-align: right; font-size: .74rem; font-weight: 600; flex-shrink: 0; }
+.st-off .st-note { font-size: .72rem; color: var(--sub); }
+
+/* 本番モード（模試） */
+.exam-launcher {
+  margin-top: 14px;
+  border-top: 1px dashed var(--line);
+  padding-top: 12px;
+}
+.exam-launcher-head { font-size: .88rem; font-weight: 700; margin-bottom: 8px; }
+.exam-launcher-note { font-size: .72rem; color: var(--sub); margin-top: 6px; }
+.chip.exam-random { border-color: var(--brand); color: var(--brand-dark); }
+.exam-note {
+  font-size: .78rem;
+  color: var(--sub);
+  background: var(--soft);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 10px;
+  margin: 10px 0;
+}
+.exam-result-title { font-size: 1.05rem; margin: 4px 0 6px; }
+.ex-row {
+  border-bottom: 1px solid var(--line);
+  padding: 10px 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ex-q { font-size: .95rem; line-height: 1.7; }
+.ex-no {
+  display: inline-block;
+  background: var(--badge-bg);
+  color: var(--brand-dark);
+  font-size: .7rem;
+  padding: 1px 8px;
+  border-radius: 999px;
+  margin-right: 6px;
+}
+.ex-ans { font-size: .95rem; }
+.ex-ans b { font-size: 1.15rem; color: var(--brand-dark); }
+.ex-ans small { color: var(--sub); }
+.ex-grade { display: flex; gap: 6px; }
+.ex-grade .grade {
+  flex: 0 0 auto;
+  min-width: 56px;
+  padding: 6px 0;
+  font-size: 1rem;
+  opacity: .55;
+}
+.ex-grade .grade.selected { opacity: 1; outline: 2px solid currentColor; }
+.exam-score {
+  text-align: center;
+  font-weight: 700;
+  margin: 10px 0;
+  font-size: .95rem;
+}
 .lst {
   border: 1px solid var(--line);
-  background: #fff;
+  background: var(--chip-bg);
   color: var(--sub);
   font-size: .72rem;
   padding: 5px 8px;
@@ -841,4 +971,10 @@ body.quiz-active { padding-bottom: 12px; }
   .dashboard { grid-template-columns: repeat(3, 1fr); }
   .quiz { padding: 14px; }
   .reveal-word { font-size: 1.4rem; }
+}
+
+/* 入力欄・セレクトのテーマ対応（ライトでは従来どおり白） */
+.list-search, .modal input, .modal select {
+  background: var(--chip-bg);
+  color: var(--ink);
 }

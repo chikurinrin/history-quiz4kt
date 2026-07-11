@@ -7,7 +7,19 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>都立高校入試 漢字マスター</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#2563eb">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
   <script>
+    // ===== テーマ（ダークモード）を最初に適用（ちらつき防止） =====
+    (function () {
+      try {
+        var t = localStorage.getItem('toritsu-kanji.theme');
+        if (!t) t = (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    })();
     // ===== 読み込み＆キャッシュ対策 ==================================
     //  Service Worker（sw.js）を登録し、「オンライン時は常に最新を取得」します。
     //  一度この仕組みが入った端末では、以後 GitHub に上げた更新が自動で反映されます。
@@ -57,6 +69,7 @@
     <div class="stat"><span class="stat-num" id="statRate">0%</span><span class="stat-label">正答率</span></div>
     <div class="stat unsure"><span class="stat-num" id="statUnsure">0</span><span class="stat-label">不安</span></div>
     <div class="stat weak"><span class="stat-num" id="statWeak">0</span><span class="stat-label">苦手</span></div>
+    <div class="stat due"><span class="stat-num" id="statDue">0</span><span class="stat-label">今日の復習</span></div>
     <div class="goal">
       <div class="total-count" id="totalCount">収録 — 語</div>
       <div class="goal-bar"><div class="goal-fill" id="goalFill"></div></div>
@@ -66,6 +79,7 @@
 
   <!-- 出題設定 -->
   <section class="controls" id="controls">
+    <button class="due-btn hidden" id="dueBtn"></button>
     <div class="control-row">
       <span class="control-label">出題形式</span>
       <div class="btn-group" id="modeGroup">
@@ -102,6 +116,7 @@
       <span class="control-label">出題範囲</span>
       <div class="btn-group" id="poolGroup">
         <button class="chip active" data-pool="all">全問</button>
+        <button class="chip" data-pool="due">今日の復習</button>
         <button class="chip" data-pool="weak">苦手・不安</button>
         <button class="chip" data-pool="weakonly">苦手だけ</button>
         <button class="chip" data-pool="unseen">未出題</button>
@@ -139,6 +154,19 @@
     </div>
     <button class="start-btn" id="startBtn">学習をはじめる</button>
     <button class="auto-btn" id="autoStartBtn">▶ 自動再生（手を動かさず確認）</button>
+
+    <div class="exam-launcher">
+      <div class="exam-launcher-head">📝 本番モード（読み4問＋書き4問／最後にまとめて採点）</div>
+      <div class="btn-group" id="examGroup">
+        <button class="chip" data-exam="2021">2021年</button>
+        <button class="chip" data-exam="2022">2022年</button>
+        <button class="chip" data-exam="2023">2023年</button>
+        <button class="chip" data-exam="2024">2024年</button>
+        <button class="chip" data-exam="2025">2025年</button>
+        <button class="chip exam-random" data-exam="random">🎲 ランダム模試</button>
+      </div>
+      <p class="exam-launcher-note">年度＝西高の実際の出題。ランダム＝収録語から西高風に自動作成（毎回変わる）。</p>
+    </div>
   </section>
 
   <!-- 問題カード -->
@@ -184,6 +212,29 @@
         <button class="grade wrong" data-grade="wrong">✕ 苦手</button>
         <button class="grade skip" data-grade="skip">− カウントしない</button>
       </div>
+    </div>
+  </section>
+
+  <!-- 本番モード（模試） -->
+  <section class="quiz exam hidden" id="examView">
+    <div class="quiz-top">
+      <button class="home-btn" id="examHomeBtn">← 中断</button>
+      <span class="badge" id="examTitle">模試</span>
+      <span class="badge mode" id="examMode">読み</span>
+      <span class="progress" id="examProgress">1 / 8</span>
+    </div>
+    <div id="examQuestionArea">
+      <p class="prompt" id="examPrompt"></p>
+      <p class="sentence" id="examSentence"></p>
+      <p class="exam-note">✏️ 答えを紙に書いてから「次へ」。正解は8問すべて終わってからまとめて表示されます。</p>
+      <button class="start-btn" id="examNextBtn">次へ</button>
+    </div>
+    <div id="examResultArea" class="hidden">
+      <h2 class="exam-result-title">答え合わせ</h2>
+      <p class="exam-note">紙の答えと見比べて、1問ずつ ◯△✕ を付けてください。</p>
+      <div id="examResultRows"></div>
+      <div class="exam-score" id="examScore"></div>
+      <button class="start-btn" id="examFinishBtn">記録して終了</button>
     </div>
   </section>
 
@@ -261,6 +312,18 @@
     </div>
   </div>
 
+  <!-- 成績分析モーダル -->
+  <div class="modal-backdrop hidden" id="statsModal">
+    <div class="modal">
+      <h2>成績分析</h2>
+      <p class="hist-caption">習得＝2回連続正解。正答率＝これまでの自己採点の累計。</p>
+      <div id="statsBody"></div>
+      <div class="modal-actions">
+        <button class="modal-cancel" id="statsClose">閉じる</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 学習履歴モーダル -->
   <div class="modal-backdrop hidden" id="historyModal">
     <div class="modal">
@@ -294,7 +357,9 @@
   </div>
 
   <footer class="app-footer">
+    <button class="link-btn" id="themeBtn">🌙 表示切替</button>
     <button class="link-btn" id="openListBtn">📖 漢字一覧</button>
+    <button class="link-btn" id="openStatsBtn">📊 成績分析</button>
     <button class="link-btn" id="openHistoryBtn">📅 学習履歴を見る</button>
     <button class="link-btn" id="exportBtn">⬆ エクスポート</button>
     <button class="link-btn" id="importBtn">⬇ インポート</button>

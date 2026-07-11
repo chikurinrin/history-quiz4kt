@@ -115,6 +115,7 @@
 
   // ---- 状態 ----
   var settings = { mode: 'reading', level: 'all', cat: 'all', pool: 'all', pri: 'all', autoSpeak: false, autoSpeed: 3, autoVoice: true };
+  var dueCount = { r: 0, w: 0 }; // 今日の復習の読み書き別件数（updateDashboardで更新）
   var session = { queue: [], index: 0, current: null, graded: false };
   var auto = { on: false, paused: false, timer: null };
   var listFilter = { status: 'all', level: 'all', q: '', dir: 'kw', pri: 'all' }; // dir: kw=漢字→読み / rk=読み→漢字
@@ -170,6 +171,13 @@
     var h = history[key];
     return h && h.lastResult === 'correct' && (h.correct || 0) >= MASTER_HITS;
   }
+  // 復習期限が来ている（間隔反復）。due未設定の旧データは苦手・不安を期限扱いにする
+  function isDue(key) {
+    var h = history[key];
+    if (!h) return false;
+    if (h.due != null) return h.due <= Date.now();
+    return h.lastResult === 'wrong' || h.lastResult === 'unsure';
+  }
 
   function updateDashboard() {
     var totalCorrect = 0, totalUnsure = 0, totalWrong = 0, weak = 0, unsure = 0, mastered = 0;
@@ -181,12 +189,18 @@
     });
     // 苦手・不安・マスターは「読み」「書き」の各項目として集計（読み書き別）
     var modes = ['reading', 'writing'];
+    var due = 0;
+    dueCount.r = 0; dueCount.w = 0;
     allQuestions.forEach(function (q) {
       modes.forEach(function (m) {
         var key = keyOf(q.id, m);
         if (isWeak(key)) weak++;
         else if (isUnsure(key)) unsure++;
         if (isMastered(key)) mastered++;
+        if (isDue(key)) {
+          due++;
+          if (m === 'reading') dueCount.r++; else dueCount.w++;
+        }
       });
     });
 
@@ -200,6 +214,18 @@
     el.statRate.textContent = rate + '%';
     el.statUnsure.textContent = unsure;
     el.statWeak.textContent = weak;
+    var dueEl = $('statDue');
+    if (dueEl) dueEl.textContent = due;
+    // 今日の復習ワンタップボタン（期限が来た語があるときだけ表示）
+    var dueBtn = $('dueBtn');
+    if (dueBtn) {
+      if (due > 0) {
+        dueBtn.textContent = '🔔 今日の復習をはじめる（読み ' + dueCount.r + '・書き ' + dueCount.w + '）';
+        dueBtn.classList.remove('hidden');
+      } else {
+        dueBtn.classList.add('hidden');
+      }
+    }
 
     // 目標：全項目（読み書き）の9割をマスターする
     var goalCount = Math.ceil(totalItems * GOAL_RATE);
@@ -228,9 +254,13 @@
         return false;
       }
       if (settings.cat !== 'all' && q.cat !== settings.cat) return false;
+      // 西高の書き取りは常用漢字のみ。準1級（表外字）は読み専用にする
+      // （レベルで準1級を明示選択したときだけ書きでも出す）
+      if (settings.mode === 'writing' && q.level === '準1級' && settings.level !== '準1級') return false;
       if (settings.pool === 'weak' && !needsReview(key)) return false;     // 苦手＋不安
       if (settings.pool === 'weakonly' && !isWeak(key)) return false;      // 苦手だけ
       if (settings.pool === 'unseen' && history[key]) return false;
+      if (settings.pool === 'due' && !isDue(key)) return false;            // 今日の復習（期限到来）
       if (settings.pri !== 'all') {
         var p = priorityOf(q.word, q.level);
         if (p === null) return false;                                     // 優先度なし（4級/2級）は除外
@@ -370,20 +400,42 @@
     if (auto.on ? settings.autoVoice : settings.autoSpeak) speak(readingText(q));
   }
 
-  function grade(result) {
-    var q = session.current;
+  // 間隔反復：連続正解数に応じて次回復習日を延ばす（忘れかけた頃に再出題）
+  var SRS_DAYS = [1, 3, 7, 14, 30, 60];
+  function scheduleNext(h, result) {
+    var DAY = 24 * 60 * 60 * 1000;
+    if (result === 'correct') {
+      h.streak = (h.streak || 0) + 1;
+      var idx = Math.min(h.streak - 1, SRS_DAYS.length - 1);
+      h.due = Date.now() + SRS_DAYS[idx] * DAY;
+    } else if (result === 'unsure') {
+      h.streak = 0;
+      h.due = Date.now() + 1 * DAY;   // 明日もう一度
+    } else {
+      h.streak = 0;
+      h.due = Date.now();             // すぐ復習対象に残す
+    }
+  }
+
+  // 採点結果を履歴・日別ログに記録（通常セッション・本番モード共通）
+  function recordResult(q, mode, result) {
     if (result !== 'skip') {
-      var key = keyOf(q.id, settings.mode); // 読み／書き別に記録
+      var key = keyOf(q.id, mode); // 読み／書き別に記録
       var h = history[key] || { correct: 0, unsure: 0, wrong: 0, lastResult: null };
       if (result === 'correct') h.correct = (h.correct || 0) + 1;
       else if (result === 'unsure') h.unsure = (h.unsure || 0) + 1;
       else h.wrong = (h.wrong || 0) + 1;
       h.lastResult = result;
       h.lastAt = Date.now();
+      scheduleNext(h, result);
       history[key] = h;
       writeJSON(LS_HISTORY, history);
     }
     logDaily(result); // 日別ログに記録（correct / unsure / wrong / skip）
+  }
+
+  function grade(result) {
+    recordResult(session.current, settings.mode, result);
     session.graded = true;
     updateDashboard();
     nextQuestion();
@@ -1110,6 +1162,246 @@
       groups.forEach(function (g, gi) { setGroupChecked(lv, gi, false); });
     }
     renderGroupPanel();
+  });
+
+  // =====================================================
+  // 成績分析（級別・難読カテゴリ別 × 読み書き）
+  // =====================================================
+  function statsFor(items, mode) {
+    var mastered = 0, touched = 0, c = 0, u = 0, w = 0;
+    items.forEach(function (q) {
+      var key = keyOf(q.id, mode);
+      if (isMastered(key)) mastered++;
+      else if (history[key]) touched++;
+      var h = history[key];
+      if (h) { c += h.correct || 0; u += h.unsure || 0; w += h.wrong || 0; }
+    });
+    var answered = c + u + w;
+    return {
+      total: items.length, mastered: mastered, touched: touched,
+      rate: answered ? Math.round(c / answered * 100) : null
+    };
+  }
+
+  function statsCellHtml(modeLabel, st, disabled) {
+    if (disabled) {
+      return '<div class="st-cell st-off"><span class="st-mode">' + modeLabel + '</span>' +
+        '<span class="st-note">書き対象外（表外字）</span></div>';
+    }
+    var mPct = st.total ? Math.round(st.mastered / st.total * 100) : 0;
+    var tPct = st.total ? Math.round((st.mastered + st.touched) / st.total * 100) : 0;
+    return '<div class="st-cell">' +
+      '<span class="st-mode">' + modeLabel + '</span>' +
+      '<span class="grp-bar"><i class="seg-t" style="width:' + tPct + '%"></i>' +
+      '<i class="seg-m" style="width:' + mPct + '%"></i></span>' +
+      '<span class="st-num">' + st.mastered + '/' + st.total + '</span>' +
+      '<span class="st-rate">' + (st.rate === null ? '—' : '正答 ' + st.rate + '%') + '</span>' +
+      '</div>';
+  }
+
+  function statsSectionHtml(label, items, writingDisabled) {
+    if (!items.length) return '';
+    return '<div class="st-row"><div class="st-label">' + escapeHtml(label) + '</div>' +
+      '<div class="st-cells">' +
+      statsCellHtml('読', statsFor(items, 'reading'), false) +
+      statsCellHtml('書', writingDisabled ? null : statsFor(items, 'writing'), writingDisabled) +
+      '</div></div>';
+  }
+
+  function openStats() {
+    var html = '<div class="stats-h">漢検レベル別</div>';
+    LEVELS.forEach(function (L) {
+      html += statsSectionHtml(L, allQuestions.filter(function (q) { return q.level === L; }), L === '準1級');
+    });
+    html += '<div class="stats-h">難読カテゴリ別</div>';
+    [['特殊音', '特殊な音読み'], ['熟字訓', '熟字訓'], ['難訓', '難読の訓']].forEach(function (p) {
+      html += statsSectionHtml(p[1], allQuestions.filter(function (q) { return q.cat === p[0]; }), false);
+    });
+    $('statsBody').innerHTML = html;
+    $('statsModal').classList.remove('hidden');
+  }
+
+  // 今日の復習をワンタップで開始（件数の多い方のモードで。チップ表示も同期）
+  function syncChip(groupId, attr, value) {
+    var group = $(groupId);
+    if (!group) return;
+    group.querySelectorAll('.chip').forEach(function (c) {
+      c.classList.toggle('active', c.getAttribute(attr) === value);
+    });
+  }
+  $('dueBtn').addEventListener('click', function () {
+    var curDue = settings.mode === 'writing' ? dueCount.w : dueCount.r;
+    if (curDue === 0) settings.mode = (settings.mode === 'writing') ? 'reading' : 'writing';
+    settings.pool = 'due';
+    settings.level = 'all';
+    settings.cat = 'all';
+    syncChip('modeGroup', 'data-mode', settings.mode);
+    syncChip('poolGroup', 'data-pool', 'due');
+    syncChip('levelGroup', 'data-level', 'all');
+    syncChip('catGroup', 'data-cat', 'all');
+    startSession();
+  });
+
+  // ダークモード切替（設定は端末に保存）
+  $('themeBtn').addEventListener('click', function () {
+    var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem('toritsu-kanji.theme', next); } catch (e) {}
+  });
+
+  $('openStatsBtn').addEventListener('click', openStats);
+  $('statsClose').addEventListener('click', function () { $('statsModal').classList.add('hidden'); });
+  $('statsModal').addEventListener('click', function (e) {
+    if (e.target === $('statsModal')) $('statsModal').classList.add('hidden');
+  });
+
+  // =====================================================
+  // 本番モード（模試）
+  //  読み4問＋書き4問。途中で答えを見ず、最後にまとめて答え合わせ。
+  //  年度セット＝西高の実際の出題。ランダム＝西高風に自動作成。
+  // =====================================================
+  var exam = { items: [], index: 0, grades: [], title: '' };
+
+  function wordToQuestion(w) {
+    for (var i = 0; i < allQuestions.length; i++) {
+      if (allQuestions[i].word === w) return allQuestions[i];
+    }
+    return null;
+  }
+
+  function buildExamItems(setId) {
+    var items = [];
+    if (setId === 'random') {
+      // 読み＝難読ゾーン（2級・準1級・四字熟語）／書き＝常用漢字のみ（2級・四字熟語）
+      var rPool = allQuestions.filter(function (q) {
+        return q.level === '2級' || q.level === '準1級' || q.level === '四字熟語';
+      });
+      var wPool = allQuestions.filter(function (q) {
+        return (q.level === '2級' || q.level === '四字熟語') && String(q.hint || '').indexOf('常用外') === -1;
+      });
+      shuffle(rPool); shuffle(wPool);
+      var used = {};
+      rPool.slice(0, 4).forEach(function (q) { used[q.id] = true; items.push({ q: q, mode: 'reading' }); });
+      for (var i = 0; i < wPool.length && items.length < 8; i++) {
+        if (!used[wPool[i].id]) items.push({ q: wPool[i], mode: 'writing' });
+      }
+      exam.title = 'ランダム模試';
+    } else {
+      var set = null;
+      (window.EXAM_SETS || []).forEach(function (s) { if (String(s.year) === setId) set = s; });
+      if (!set) return [];
+      set.reading.forEach(function (w) { var q = wordToQuestion(w); if (q) items.push({ q: q, mode: 'reading' }); });
+      set.writing.forEach(function (w) { var q = wordToQuestion(w); if (q) items.push({ q: q, mode: 'writing' }); });
+      exam.title = set.year + '年度 西高';
+    }
+    return items;
+  }
+
+  function startExam(setId) {
+    var items = buildExamItems(setId);
+    if (items.length < 8) { alert('模試を作成できませんでした。'); return; }
+    exam.items = items;
+    exam.index = 0;
+    exam.grades = items.map(function () { return null; });
+    document.body.classList.add('quiz-active');
+    el.controls.classList.add('hidden');
+    $('examView').classList.remove('hidden');
+    $('examQuestionArea').classList.remove('hidden');
+    $('examResultArea').classList.add('hidden');
+    $('examTitle').textContent = exam.title;
+    showExamQuestion();
+  }
+
+  function showExamQuestion() {
+    var it = exam.items[exam.index];
+    $('examMode').textContent = it.mode === 'reading' ? '読み' : '書き';
+    $('examProgress').textContent = (exam.index + 1) + ' / ' + exam.items.length;
+    if (it.mode === 'reading') {
+      $('examPrompt').textContent = '次の傍線部の読みをひらがなで書きなさい。';
+      $('examSentence').innerHTML = renderSentence(it.q, 'reading');
+    } else {
+      $('examPrompt').textContent = '次の傍線部を漢字で書きなさい。（読み：' + it.q.reading + '）';
+      $('examSentence').innerHTML = renderSentence(it.q, 'writing');
+    }
+    $('examNextBtn').textContent = (exam.index === exam.items.length - 1) ? '答え合わせへ' : '次へ';
+  }
+
+  function showExamResult() {
+    $('examQuestionArea').classList.add('hidden');
+    $('examResultArea').classList.remove('hidden');
+    $('examProgress').textContent = '答え合わせ';
+    var html = '';
+    exam.items.forEach(function (it, i) {
+      var label = (it.mode === 'reading' ? '読み' : '書き') + '(' + (i % 4 + 1) + ')';
+      var sent = escapeHtml(it.q.sentence).replace(/\{([^}]*)\}/, '<b class="ld-target">$1</b>');
+      var ans = it.mode === 'reading' ? it.q.reading : it.q.word;
+      html += '<div class="ex-row" data-i="' + i + '">'
+        + '<div class="ex-q"><span class="ex-no">' + label + '</span>' + sent + '</div>'
+        + '<div class="ex-ans">正解：<b>' + escapeHtml(ans) + '</b>'
+        + ' <small>（' + escapeHtml(it.q.word) + '／' + escapeHtml(it.q.reading) + '）</small></div>'
+        + '<div class="ex-grade">'
+        + '<button class="grade correct" data-g="correct">◯</button>'
+        + '<button class="grade unsure" data-g="unsure">△</button>'
+        + '<button class="grade wrong" data-g="wrong">✕</button>'
+        + '</div></div>';
+    });
+    $('examResultRows').innerHTML = html;
+    updateExamScore();
+  }
+
+  function updateExamScore() {
+    var ok = exam.grades.filter(function (g) { return g === 'correct'; }).length;
+    var graded = exam.grades.filter(function (g) { return g; }).length;
+    $('examScore').textContent = graded
+      ? '採点済み ' + graded + ' / ' + exam.items.length + '　得点 ' + ok + ' / ' + exam.items.length
+      : '';
+  }
+
+  function examExit() {
+    $('examView').classList.add('hidden');
+    document.body.classList.remove('quiz-active');
+    el.controls.classList.remove('hidden');
+    renderGroupPanel();
+    updateDashboard();
+  }
+
+  $('examGroup').addEventListener('click', function (e) {
+    var btn = e.target.closest('.chip');
+    if (btn) startExam(btn.getAttribute('data-exam'));
+  });
+  $('examNextBtn').addEventListener('click', function () {
+    exam.index++;
+    if (exam.index >= exam.items.length) showExamResult();
+    else showExamQuestion();
+  });
+  $('examHomeBtn').addEventListener('click', function () {
+    if ($('examResultArea').classList.contains('hidden') &&
+        !confirm('模試を中断しますか？（ここまでの分は記録されません）')) return;
+    examExit();
+  });
+  $('examResultRows').addEventListener('click', function (e) {
+    var b = e.target.closest('.grade');
+    if (!b) return;
+    var row = b.closest('.ex-row');
+    var i = parseInt(row.getAttribute('data-i'), 10);
+    exam.grades[i] = b.getAttribute('data-g');
+    row.querySelectorAll('.grade').forEach(function (x) {
+      x.classList.toggle('selected', x === b);
+    });
+    updateExamScore();
+  });
+  $('examFinishBtn').addEventListener('click', function () {
+    var ungraded = exam.grades.filter(function (g) { return !g; }).length;
+    if (ungraded > 0 && !confirm('未採点が ' + ungraded + ' 問あります。未採点分は記録せず終了しますか？')) return;
+    exam.items.forEach(function (it, i) {
+      if (exam.grades[i]) recordResult(it.q, it.mode, exam.grades[i]);
+    });
+    var ok = exam.grades.filter(function (g) { return g === 'correct'; }).length;
+    examExit();
+    setTimeout(function () {
+      alert('模試おつかれさまでした！\n得点：' + ok + ' / ' + exam.items.length +
+        '\n（西高合格ラインの目安は 7〜8 / 8 です）');
+    }, 150);
   });
 
   // 初期化
