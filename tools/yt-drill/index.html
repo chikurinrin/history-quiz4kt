@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>一問一答ドリル｜間違えたところだけ流す</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <h1 class="header-title"><span>YOUTUBE DRILL</span>一問一答ドリル</h1>
+    <div class="header-stats">
+      <div class="stat total"><div class="stat-num" id="stat-total">0</div><div class="stat-lbl">記録</div></div>
+      <div class="stat wrong"><div class="stat-num" id="stat-remain">0</div><div class="stat-lbl">復習中</div></div>
+      <div class="stat correct"><div class="stat-num" id="stat-done">0</div><div class="stat-lbl">卒業</div></div>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- 動画の読み込み -->
+  <section class="card" id="loader">
+    <h2>1. 動画を読み込む</h2>
+    <div class="row">
+      <input type="text" id="url-input" placeholder="YouTubeのURL または 動画ID を貼り付け">
+      <button class="btn primary" id="load-btn">読み込む</button>
+    </div>
+    <p class="hint" id="load-hint">例: https://www.youtube.com/watch?v=XXXXXXXXXXX</p>
+    <div id="history-wrap" class="history hidden">
+      <div class="history-label">最近の動画</div>
+      <div id="history-list"></div>
+    </div>
+  </section>
+
+  <!-- プレーヤー -->
+  <section class="card hidden" id="player-card">
+    <div class="video-bar">
+      <span class="video-title" id="video-title-label"></span>
+      <button class="btn ghost" id="change-video">動画を変更</button>
+    </div>
+    <div class="player-box">
+      <div id="player"></div>
+      <!-- 一時停止中にYouTubeが出すタイトル・後で見る・共有・関連動画を覆い隠す -->
+      <div class="player-cover" id="player-cover">▶ 再生 を押してください</div>
+    </div>
+
+    <!-- 自前の再生コントロール（YouTubeの操作バーを隠すため） -->
+    <div class="transport">
+      <button class="btn ghost" id="tp-back">⏪ 10秒</button>
+      <button class="btn" id="tp-play">▶ 再生</button>
+      <button class="btn ghost" id="tp-fwd">10秒 ⏩</button>
+      <span class="tp-time" id="tp-time">00:00</span>
+      <select id="speed-sel" class="tp-select" title="再生速度">
+        <option value="0.75">0.75x</option>
+        <option value="1" selected>1x</option>
+        <option value="1.25">1.25x</option>
+        <option value="1.5">1.5x</option>
+        <option value="1.75">1.75x</option>
+        <option value="2">2x</option>
+      </select>
+      <label class="tp-toggle">
+        <input type="checkbox" id="show-controls"> YouTubeの操作バーを表示
+      </label>
+    </div>
+
+    <div class="mode-tabs">
+      <button class="tab active" id="tab-study">学習モード</button>
+      <button class="tab" id="tab-review">復習モード</button>
+    </div>
+
+    <!-- 学習モード -->
+    <div id="study-pane">
+      <div class="study-actions">
+        <button class="btn ok" id="ok-btn">○ 解けた</button>
+        <button class="btn mark" id="mark-btn">✕ 解けなかった</button>
+      </div>
+      <button class="btn ans" id="ans-btn">◆ 答えの位置を直す（直前の記録を再生中の現在地に）</button>
+      <details class="help">
+        <summary>記録方式・秒数設定・使い方</summary>
+        <div class="rec-mode">
+          <label><input type="radio" name="rec-mode" value="boundary" checked> 全問に○×を押す<span class="rec-note">（スタート位置が正確）</span></label>
+          <label><input type="radio" name="rec-mode" value="simple"> ✕だけ押す<span class="rec-note">（問題は答えの数秒前から）</span></label>
+        </div>
+        <p class="hint" id="hint-boundary"><b>答えが出るたびに ○ か ✕ を押します</b>（キー: <kbd>O</kbd> / <kbd>X</kbd>）。✕のときは<b>前回ボタンを押した位置から今の位置まで</b>を1問として記録するので、スタート位置がずれません。解けた問題も○を押すのを忘れずに。</p>
+        <p class="hint hidden" id="hint-simple"><b>間違えた問題だけ、答えが出た瞬間に ✕ を押します</b>（キー: <kbd>X</kbd>）。押した位置の少し前を答えの始まり、そこから指定秒数さかのぼった位置を問題の始まりとして記録します。押す回数は少ないぶん、スタート位置は多少ずれます。</p>
+        <div class="settings">
+          <label>答えはボタンの <input type="number" id="set-lag" value="1" min="0" max="5" step="0.5"> 秒前</label>
+          <label>答えを <input type="number" id="set-ans" value="8" min="2" max="60" step="1"> 秒間流す</label>
+          <label><span id="pre-label">押し忘れたときは</span> <input type="number" id="set-pre" value="7" min="0" max="60" step="1"> 秒前から</label>
+        </div>
+      </details>
+    </div>
+
+    <!-- 復習モード -->
+    <div id="review-pane" class="hidden">
+      <div id="review-idle">
+        <p class="due-info" id="due-info"></p>
+        <button class="btn primary big" id="review-start">▶ 1問ずつ復習する（○×をつける）</button>
+        <button class="btn big" id="playall-start">🔀 ランダムに連続再生（流しっぱなし）</button>
+        <details class="help scope-box">
+          <summary id="scope-summary">出題範囲: この動画のみ</summary>
+          <div class="scope-tags" id="scope-tags"></div>
+          <div class="scope-actions">
+            <button class="btn ghost" id="scope-all">すべて選択</button>
+            <button class="btn ghost" id="scope-one">この動画のみ</button>
+          </div>
+          <div id="scope-list"></div>
+          <p class="hint">🏷 ボタンで各動画にタグ（理科・社会など）を付けると、タグで一括選択できます。</p>
+        </details>
+        <label class="check"><input type="checkbox" id="loop-all"> 連続再生を最後まで行ったら繰り返す</label>
+        <label class="check"><input type="checkbox" id="include-done"> 期限前・卒業済みの問題も含める</label>
+        <details class="help">
+          <summary>復習のしくみ</summary>
+          <p class="hint">記録した区間を<b>ランダム順</b>で再生します。○をつけると次回は<b>翌日→3日後</b>と間隔が空き、3回連続○で卒業します。✕をつけるとやり直しです。</p>
+        </details>
+      </div>
+
+      <!-- 連続再生 -->
+      <div id="playall-run" class="hidden">
+        <div class="review-head">
+          <span id="pa-count">1 / 5</span>
+          <span id="pa-memo" class="review-memo"></span>
+        </div>
+        <div class="review-sub">
+          <button class="btn ghost" id="pa-prev">⏮ 前</button>
+          <button class="btn ghost" id="pa-replay">↻ もう一度</button>
+          <button class="btn ghost" id="pa-next">次 ⏭</button>
+          <button class="btn ghost danger" id="pa-stop">■ 停止</button>
+        </div>
+      </div>
+      <div id="review-run" class="hidden">
+        <div class="review-head">
+          <span id="review-count">1 / 5</span>
+          <span id="review-memo" class="review-memo"></span>
+        </div>
+        <button class="btn primary big hidden" id="rv-ans">▶ 答えを見る（<kbd>A</kbd>）</button>
+        <div class="review-actions">
+          <button class="btn ok" id="rv-ok">○ 正解（<kbd>O</kbd>）</button>
+          <button class="btn ng" id="rv-ng">✕ 不正解（<kbd>X</kbd>）</button>
+        </div>
+        <div class="review-sub">
+          <button class="btn ghost" id="rv-replay">↻ もう一度（<kbd>R</kbd>）</button>
+          <button class="btn ghost" id="rv-quit">終了</button>
+        </div>
+      </div>
+      <div id="review-result" class="hidden">
+        <h3 id="result-title">おつかれさま！</h3>
+        <p id="result-body"></p>
+        <button class="btn primary" id="result-again">もう一周</button>
+        <button class="btn ghost" id="result-close">閉じる</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 記録リスト -->
+  <section class="card hidden" id="list-card">
+    <h2>記録した問題 <span class="count" id="list-count">0</span></h2>
+    <div id="mark-list"></div>
+    <p class="empty hidden" id="list-empty">まだ記録がありません。学習モードで「間違えた」ボタンを押してみましょう。</p>
+    <div class="list-foot">
+      <div class="foot-group">
+        <button class="btn ghost" id="export-btn">JSONで書き出し</button>
+        <button class="btn ghost" id="import-btn">JSONを読み込み</button>
+        <input type="file" id="import-file" accept=".json,application/json" class="hidden">
+      </div>
+      <button class="btn ghost danger" id="clear-btn">この動画の記録を全消去</button>
+    </div>
+  </section>
+
+</main>
+
+<script src="script.js"></script>
+</body>
+</html>
