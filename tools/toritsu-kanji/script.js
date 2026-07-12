@@ -17,7 +17,7 @@
   var LS_GROUPS = 'toritsu-kanji.groups.v1';   // 出題対象に選んだグループ { level: { groupIndex: true } }
   var GOAL_RATE  = 0.9;                        // 都立9割目標
   var MASTER_HITS = 2;                         // 連続正解でマスター扱いにする回数
-  var QUESTIONS_PER_SESSION = 20;
+  var QUESTIONS_PER_SESSION = 50;
   var GROUP_SIZE = 50;                          // 1グループの語数（頻出度順に分割）
   var LEVELS = ['4級', '3級', '準2級', '2級', '準1級', '四字熟語'];
 
