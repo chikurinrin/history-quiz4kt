@@ -395,6 +395,7 @@
     }
     renderKanjiRefs(q.word);
 
+    el.answerArea.classList.add('hidden'); // 「答えを見る」を隠す（採点ボタンと入れ替え）
     el.revealBox.classList.remove('hidden');
     // 答え表示時に読み上げ（自動再生中は音声設定オン時、通常は自動読み上げオン時）
     if (auto.on ? settings.autoVoice : settings.autoSpeak) speak(readingText(q));
