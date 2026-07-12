@@ -303,6 +303,40 @@ details.help[open] summary { font-weight:700; }
   .review-actions { flex-direction:column; }
 }
 
+/* ---- 携帯の横向き: 動画を左、ボタンを右に並べて両方見えるように ---- */
+@media (orientation: landscape) and (max-height: 540px) {
+  header { position:static; }              /* 貴重な縦幅を空ける */
+  main { padding:8px 8px 40px; }
+  .card { padding:10px; margin-bottom:8px; }
+
+  #player-card {
+    display:grid;
+    grid-template-columns:minmax(0, 1.15fr) minmax(230px, 1fr);
+    gap:0 12px;
+    align-items:start;
+  }
+  .video-bar { grid-column:1 / -1; margin-bottom:8px; }
+  .player-box {
+    grid-column:1; grid-row:2 / span 6;
+    margin-bottom:0; position:sticky; top:8px;
+  }
+  .transport, .mode-tabs, #study-pane, #review-pane { grid-column:2; }
+
+  .transport { margin-bottom:8px; gap:5px; }
+  .transport .btn { padding:7px 8px; font-size:11px; }
+  .tp-time { font-size:12px; padding:4px 6px; }
+  .mode-tabs { margin-bottom:8px; }
+  .tab { padding:7px; font-size:12px; }
+  .study-actions { margin:0 0 6px; }
+  .study-actions .btn { padding:12px 6px; font-size:14px; }
+  .btn.ans { padding:8px 6px; font-size:11px; margin-bottom:6px; }
+  .btn.big { padding:11px; font-size:13px; margin:4px 0; }
+  .review-actions .btn { padding:11px; font-size:13px; }
+  .due-info { padding:7px; font-size:12px; margin-bottom:6px; }
+  .check { margin-top:4px; font-size:11px; }
+  details.help { margin-top:6px; padding-top:5px; }
+}
+
 /* ---- PCの広い画面: 2カラム（左=動画と操作 / 右=記録リスト） ---- */
 @media (min-width:1100px) {
   main {
