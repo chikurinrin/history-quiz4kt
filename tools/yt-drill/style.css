@@ -303,38 +303,49 @@ details.help[open] summary { font-weight:700; }
   .review-actions { flex-direction:column; }
 }
 
-/* ---- 携帯の横向き: 動画を左、ボタンを右に並べて両方見えるように ---- */
+/* ---- 携帯の横向き: 動画を高さいっぱいに最大化し、右の操作列は最小限に ---- */
 @media (orientation: landscape) and (max-height: 540px) {
-  header { position:static; }              /* 貴重な縦幅を空ける */
-  main { padding:8px 8px 40px; }
-  .card { padding:10px; margin-bottom:8px; }
+  header { display:none; }                 /* 貴重な縦幅を空ける */
+  main { padding:6px 6px 24px; }
+  .card { padding:8px; margin-bottom:6px; }
 
+  .video-bar { display:none; }             /* 動画の変更は縦向きで行う */
   #player-card {
     display:grid;
-    grid-template-columns:minmax(0, 1.15fr) minmax(230px, 1fr);
-    gap:0 12px;
+    grid-template-columns:auto minmax(0, 1fr);
+    gap:0 10px;
     align-items:start;
   }
-  .video-bar { grid-column:1 / -1; margin-bottom:8px; }
   .player-box {
-    grid-column:1; grid-row:2 / span 6;
-    margin-bottom:0; position:sticky; top:8px;
+    grid-column:1; grid-row:1 / span 8;
+    /* 画面の高さから逆算して16:9で最大サイズに */
+    height:calc(100vh - 44px);
+    width:calc((100vh - 44px) * 1.7778);
+    max-width:70vw;
+    padding-bottom:0;
+    margin-bottom:0; position:sticky; top:6px;
   }
   .transport, .mode-tabs, #study-pane, #review-pane { grid-column:2; }
 
-  .transport { margin-bottom:8px; gap:5px; }
-  .transport .btn { padding:7px 8px; font-size:11px; }
-  .tp-time { font-size:12px; padding:4px 6px; }
-  .mode-tabs { margin-bottom:8px; }
-  .tab { padding:7px; font-size:12px; }
-  .study-actions { margin:0 0 6px; }
-  .study-actions .btn { padding:12px 6px; font-size:14px; }
-  .btn.ans { padding:8px 6px; font-size:11px; margin-bottom:6px; }
-  .btn.big { padding:11px; font-size:13px; margin:4px 0; }
-  .review-actions .btn { padding:11px; font-size:13px; }
-  .due-info { padding:7px; font-size:12px; margin-bottom:6px; }
-  .check { margin-top:4px; font-size:11px; }
-  details.help { margin-top:6px; padding-top:5px; }
+  .transport { margin-bottom:6px; gap:4px; }
+  .transport .btn { padding:5px 6px; font-size:10px; }
+  .tp-time { font-size:11px; padding:3px 5px; }
+  .tp-select { padding:4px 4px; font-size:10px; }
+  .tp-toggle { display:none; }
+  .mode-tabs { margin-bottom:6px; }
+  .tab { padding:6px; font-size:11px; }
+  .hint { font-size:10px; margin:4px 0; }
+  .study-actions { margin:0 0 5px; gap:5px; }
+  .study-actions .btn { padding:10px 4px; font-size:13px; }
+  .btn.ans { padding:6px 4px; font-size:10px; margin-bottom:5px; }
+  .btn.big { padding:9px; font-size:12px; margin:3px 0; }
+  .review-actions { gap:5px; }
+  .review-actions .btn { padding:9px; font-size:13px; }
+  .review-sub .btn { padding:6px 8px; font-size:11px; }
+  .due-info { padding:6px; font-size:11px; margin-bottom:5px; }
+  .check { margin-top:3px; font-size:10px; }
+  details.help { margin-top:5px; padding-top:4px; }
+  details.help summary { font-size:10px; }
 }
 
 /* ---- PCの広い画面: 2カラム（左=動画と操作 / 右=記録リスト） ---- */
