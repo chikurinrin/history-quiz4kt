@@ -348,6 +348,16 @@ body {
 
 .snippet-btn:active { transform: translateY(1px); }
 
+.snip-star {
+  font-size: 12px;
+  line-height: 1;
+  margin-right: 6px;
+  color: var(--muted);
+  transition: color 0.12s, transform 0.12s;
+}
+.snip-star:hover { transform: scale(1.25); color: #e5c07b; }
+.snip-star.on { color: #e5c07b; }
+
 /* ---------------- エディタ ---------------- */
 #editor-container {
   flex: 1;
@@ -492,6 +502,32 @@ body {
 .sig-name { color: var(--tok-function); }
 .sig-param { color: var(--muted); }
 .sig-param.active { color: #7fd3ff; font-weight: 700; text-decoration: underline; }
+
+/* クイックヒント（ホバー説明） */
+#quick-info {
+  position: absolute;
+  z-index: 42;
+  max-width: 340px;
+  background: #2a2f37;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.55);
+  padding: 8px 11px;
+  pointer-events: none;
+}
+#quick-info.hidden { display: none; }
+.qi-title {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--tok-function);
+  margin-bottom: 4px;
+}
+.qi-body {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text);
+}
 
 /* ---------------- チェック結果パネル ---------------- */
 #output-panel {

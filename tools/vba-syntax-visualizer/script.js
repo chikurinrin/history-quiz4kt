@@ -3642,13 +3642,103 @@ function explainCurrentLine() {
 // ----------------------------------------------------------------
 //  スニペット描画・挿入
 // ----------------------------------------------------------------
+// ---- 最近使ったスニペット（localStorage） ----
+const RECENT_KEY = 'vba-syntax-visualizer:recent';
+function loadRecent() {
+  try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch { return []; }
+}
+function pushRecent(label) {
+  let list = loadRecent().filter((x) => x !== label);
+  list.unshift(label);
+  list = list.slice(0, 8);
+  try { localStorage.setItem(RECENT_KEY, JSON.stringify(list)); } catch { /* 保存不可でも継続 */ }
+}
+
+// ---- お気に入りスニペット（localStorage） ----
+const FAV_KEY = 'vba-syntax-visualizer:fav';
+function loadFav() {
+  try { return JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); } catch { return []; }
+}
+function isFav(label) { return loadFav().includes(label); }
+function toggleFav(label) {
+  let list = loadFav();
+  list = list.includes(label) ? list.filter((x) => x !== label) : [label, ...list];
+  try { localStorage.setItem(FAV_KEY, JSON.stringify(list)); } catch { /* 保存不可でも継続 */ }
+}
+
+// スニペットの説明・コードを（挿入せずに）説明エリアへ表示する
+function previewSnippet(snippet) {
+  renderExplanation({
+    title: escapeHtml(snippet.label),
+    cat: 'スニペット（クリックで挿入）',
+    desc: snippet.desc,
+    example: highlightVba(snippet.code.trimEnd()),
+  });
+}
+
+// スニペットボタン（★でお気に入り、クリックで挿入、ホバーでプレビュー）
+function makeSnippetButton(snippet) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'snippet-btn';
+
+  const star = document.createElement('span');
+  const on = isFav(snippet.label);
+  star.className = 'snip-star' + (on ? ' on' : '');
+  star.textContent = on ? '★' : '☆';
+  star.title = on ? 'お気に入りから外す' : 'お気に入りに追加';
+  star.addEventListener('click', (e) => {
+    e.stopPropagation();               // 挿入させない
+    toggleFav(snippet.label);
+    renderSnippets(snippetSearch.value);
+  });
+
+  const label = document.createElement('span');
+  label.textContent = snippet.label;
+
+  btn.appendChild(star);
+  btn.appendChild(label);
+  btn.addEventListener('click', () => insertSnippet(snippet));
+  btn.addEventListener('mouseenter', () => previewSnippet(snippet));
+  return btn;
+}
+
+function addSnippetGroup(title) {
+  const groupEl = document.createElement('div');
+  groupEl.className = 'snippet-group';
+  groupEl.textContent = title;
+  snippetsBody.appendChild(groupEl);
+  const flow = document.createElement('div');
+  flow.className = 'snippet-flow';
+  snippetsBody.appendChild(flow);
+  return flow;
+}
+
 function renderSnippets(filter = '') {
   snippetsBody.innerHTML = '';
   const q = filter.trim().toLowerCase();
-  let lastGroup = '';
-  let flow = null;
   let shown = 0;
 
+  // 検索していないときは「お気に入り」「最近使った」を先頭にピン留め
+  if (!q) {
+    const fav = loadFav()
+      .map((lb) => SNIPPETS.find((s) => s.label === lb))
+      .filter(Boolean);
+    if (fav.length) {
+      const flow = addSnippetGroup('☆ お気に入り');
+      fav.forEach((s) => flow.appendChild(makeSnippetButton(s)));
+    }
+    const recent = loadRecent()
+      .map((lb) => SNIPPETS.find((s) => s.label === lb))
+      .filter(Boolean);
+    if (recent.length) {
+      const flow = addSnippetGroup('★ 最近使った');
+      recent.forEach((s) => flow.appendChild(makeSnippetButton(s)));
+    }
+  }
+
+  let lastGroup = '';
+  let flow = null;
   for (const s of SNIPPETS) {
     if (q &&
         !s.label.toLowerCase().includes(q) &&
@@ -3658,21 +3748,10 @@ function renderSnippets(filter = '') {
     shown++;
 
     if (s.group !== lastGroup) {
-      const groupEl = document.createElement('div');
-      groupEl.className = 'snippet-group';
-      groupEl.textContent = s.group;
-      snippetsBody.appendChild(groupEl);
-      flow = document.createElement('div');
-      flow.className = 'snippet-flow';
-      snippetsBody.appendChild(flow);
+      flow = addSnippetGroup(s.group);
       lastGroup = s.group;
     }
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'snippet-btn';
-    btn.textContent = s.label;
-    btn.addEventListener('click', () => insertSnippet(s));
-    flow.appendChild(btn);
+    flow.appendChild(makeSnippetButton(s));
   }
 
   if (shown === 0) {
@@ -3703,6 +3782,9 @@ function insertSnippet(snippet) {
     desc: snippet.desc,
     example: highlightVba(snippet.code.trimEnd()),
   });
+
+  pushRecent(snippet.label);
+  renderSnippets(snippetSearch.value); // 「最近使った」を更新
 }
 
 // ----------------------------------------------------------------
@@ -4965,5 +5047,150 @@ function sigContext(value, pos) {
     get items() { return acItems; },
     get index() { return acIndex; },
     get sig() { return sigHint.classList.contains('hidden') ? null : sigHint.textContent; },
+  };
+})();
+
+// ================================================================
+//  クイックヒント（コード上のキーワード/関数にホバーで説明表示）
+// ================================================================
+function quickInfoWordAt(value, pos) {
+  const isW = (c) => /[A-Za-z0-9_]/.test(c || '');
+  let p = pos;
+  if (!isW(value[p])) p = pos - 1;
+  if (!isW(value[p])) return null;
+  let a = p, b = p;
+  while (a > 0 && isW(value[a - 1])) a--;
+  while (b < value.length && isW(value[b])) b++;
+  const word = value.slice(a, b);
+  if (!/[A-Za-z_]/.test(word[0] || '')) return null;
+  return { word, start: a, end: b };
+}
+function quickInfoFor(word) {
+  const w = String(word).toLowerCase();
+  if (EXP_KW[w]) return EXP_KW[w];
+  if (EXP_FUNCS[w]) return EXP_FUNCS[w];
+  return null;
+}
+
+(function initQuickInfo() {
+  const editorWrap = document.getElementById('editor-wrap');
+  if (!editorWrap || !textarea) return;
+
+  const tip = document.createElement('div');
+  tip.id = 'quick-info';
+  tip.className = 'hidden';
+  editorWrap.appendChild(tip);
+
+  let mirror = null;
+  function ensureMirror() {
+    if (mirror) return mirror;
+    mirror = document.createElement('div');
+    mirror.id = 'qi-mirror';
+    const cs = getComputedStyle(textarea);
+    ['fontFamily','fontSize','fontWeight','lineHeight','letterSpacing','tabSize',
+     'paddingTop','paddingRight','paddingBottom','paddingLeft','boxSizing'].forEach((p) => { mirror.style[p] = cs[p]; });
+    mirror.style.position = 'absolute';
+    mirror.style.top = '0';
+    mirror.style.left = '0';
+    mirror.style.visibility = 'hidden';
+    mirror.style.whiteSpace = 'pre';
+    mirror.style.overflow = 'hidden';
+    mirror.style.pointerEvents = 'none';
+    editorWrap.appendChild(mirror);
+    return mirror;
+  }
+  function measure(pos) {
+    const m = ensureMirror();
+    m.style.width = textarea.clientWidth + 'px';
+    m.textContent = textarea.value.slice(0, pos);
+    const mk = document.createElement('span');
+    mk.textContent = '​';
+    m.appendChild(mk);
+    const r = { left: mk.offsetLeft, top: mk.offsetTop };
+    m.textContent = '';
+    return r;
+  }
+  function lineHeightPx() {
+    const cs = getComputedStyle(textarea);
+    let lh = parseFloat(cs.lineHeight);
+    if (isNaN(lh)) lh = parseFloat(cs.fontSize) * 1.55;
+    return lh;
+  }
+
+  // マウス座標 → 文字インデックス（等幅でない日本語混在も実測で対応）
+  function indexAtPoint(clientX, clientY) {
+    const rect = textarea.getBoundingClientRect();
+    const targetX = clientX - rect.left + textarea.scrollLeft;
+    const targetY = clientY - rect.top + textarea.scrollTop;
+    const value = textarea.value;
+    const lines = value.split('\n');
+    const padTop = parseFloat(getComputedStyle(textarea).paddingTop) || 0;
+    const row = Math.floor((targetY - padTop) / lineHeightPx());
+    if (row < 0 || row >= lines.length) return -1;
+    if (lines[row].trim() === '') return -1;
+    let lineStart = 0;
+    for (let i = 0; i < row; i++) lineStart += lines[i].length + 1;
+    const lineEnd = lineStart + lines[row].length;
+    let lo = lineStart, hi = lineEnd;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (measure(mid).left < targetX) lo = mid + 1; else hi = mid;
+    }
+    return Math.max(lineStart, lo - 1);
+  }
+
+  function showTip(info, tokenStart) {
+    tip.innerHTML = '';
+    const t = document.createElement('div');
+    t.className = 'qi-title';
+    t.textContent = info.title;
+    const b = document.createElement('div');
+    b.className = 'qi-body';
+    b.textContent = info.body;
+    tip.appendChild(t);
+    tip.appendChild(b);
+    tip.classList.remove('hidden');
+    const p = measure(tokenStart);
+    const top = p.top - textarea.scrollTop + lineHeightPx() + 2;
+    const left = p.left - textarea.scrollLeft;
+    const maxLeft = Math.max(0, editorWrap.clientWidth - tip.offsetWidth - 8);
+    tip.style.left = Math.min(Math.max(0, left), maxLeft) + 'px';
+    tip.style.top = top + 'px';
+  }
+  function hideTip() { tip.classList.add('hidden'); }
+
+  let timer = null, lastWord = null;
+  textarea.addEventListener('mousemove', (e) => {
+    if (textarea.selectionStart !== textarea.selectionEnd) { hideTip(); return; }
+    const cx = e.clientX, cy = e.clientY;
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      const idx = indexAtPoint(cx, cy);
+      if (idx < 0) { hideTip(); lastWord = null; return; }
+      const tok = quickInfoWordAt(textarea.value, idx);
+      const info = tok && quickInfoFor(tok.word);
+      if (!info) { hideTip(); lastWord = null; return; }
+      if (tok.word === lastWord && !tip.classList.contains('hidden')) return;
+      lastWord = tok.word;
+      showTip(info, tok.start);
+    }, 140);
+  });
+  textarea.addEventListener('mouseleave', () => { clearTimeout(timer); hideTip(); lastWord = null; });
+  textarea.addEventListener('scroll', hideTip);
+  textarea.addEventListener('input', hideTip);
+  textarea.addEventListener('keydown', hideTip);
+
+  // テスト用：座標計算を介さずインデックスから表示できるフックを公開
+  window.__qi = {
+    visible: () => !tip.classList.contains('hidden'),
+    text: () => tip.textContent,
+    showAtIndex: (pos) => {
+      const tok = quickInfoWordAt(textarea.value, pos);
+      const info = tok && quickInfoFor(tok.word);
+      if (!info) { hideTip(); return false; }
+      showTip(info, tok.start);
+      return true;
+    },
+    hide: hideTip,
   };
 })();
