@@ -1,1 +1,132 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SQL・HL - SQLシンタックスハイライター + スニペット(Tab展開)</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
 
+    <!-- ヘッダー -->
+    <header id="app-header">
+      <h1 id="app-title">SQL<span class="title-dot">・</span>HL</h1>
+      <span id="app-subtitle">SQLシンタックスハイライター + スニペット(Tab展開)</span>
+    </header>
+
+    <div id="layout">
+
+      <!-- 左サイドバー -->
+      <aside id="sidebar">
+        <div class="sidebar-caption">スニペット / キーワード説明</div>
+
+        <!-- カラー凡例（折りたたみ式） -->
+        <details class="panel" id="legend-panel">
+          <summary>カラー凡例</summary>
+          <div id="legend-grid">
+            <span class="legend-item"><span class="legend-dot" data-tok="dml"></span>DML</span>
+            <span class="legend-item"><span class="legend-dot" data-tok="ddl"></span>DDL</span>
+            <span class="legend-item"><span class="legend-dot" data-tok="clause"></span>句・節</span>
+            <span class="legend-item"><span class="legend-dot" data-tok="logic"></span>論理演算</span>
+            <span class="legend-item"><span class="legend-dot" data-tok="type"></span>データ型</span>
+            <span class="legend-item"><span class="legend-dot" data-tok="func"></span>関数</span>
+            <span class="legend-item"><span class="legend-dot" data-tok="const"></span>定数</span>
+            <span class="legend-item"><span class="legend-dot" data-tok="option"></span>オプション</span>
+            <span class="legend-item"><span class="legend-dot" data-tok="string"></span>文字列</span>
+            <span class="legend-item"><span class="legend-dot" data-tok="number"></span>数値</span>
+            <span class="legend-item"><span class="legend-dot" data-tok="comment"></span>コメント</span>
+            <span class="legend-item"><span class="legend-dot" data-tok="operator"></span>演算子</span>
+          </div>
+        </details>
+
+        <!-- 説明エリア -->
+        <section class="panel" id="explanation-panel">
+          <div class="panel-header">
+            <span class="dot"></span>
+            <span class="panel-title">説明エリア</span>
+          </div>
+          <div class="panel-body" id="explanation-body">
+            <!-- JSで描画 -->
+          </div>
+        </section>
+
+        <!-- スニペット -->
+        <section class="panel" id="snippets-panel">
+          <div class="panel-header">
+            <span class="dot"></span>
+            <span class="panel-title">スニペット</span>
+            <span class="prefix-badge">PREFIX + TAB</span>
+          </div>
+
+          <details id="snippet-howto">
+            <summary>操作方法（sel + Tab で展開 / Tab で入力位置を移動）</summary>
+            <div id="snippet-howto-body">
+              ・<code class="kbd">sel</code> <span class="kbd key">Tab</span> / <code class="kbd">ins</code> <span class="kbd key">Tab</span> / <code class="kbd">upd</code> <span class="kbd key">Tab</span> …<br>
+              ・テンプレ内の <code class="kbd">[[...]]</code> は <span class="kbd key">Tab</span> で次へ、
+              <span class="kbd key">Shift</span>+<span class="kbd key">Tab</span> で前へ
+              （移動時に <code class="kbd">[[ ]]</code> を外して中身を選択）
+            </div>
+          </details>
+
+          <div id="snippet-toolbar">
+            <input type="text" id="snippet-search" class="snippet-search"
+                   placeholder="スニペット検索（例: join / pivot / win）">
+            <button type="button" class="toolbar-btn" id="btn-howto">使い方</button>
+          </div>
+
+          <div class="panel-body" id="snippets-body">
+            <!-- JSで描画 -->
+          </div>
+        </section>
+
+      </aside>
+
+      <!-- エディタ -->
+      <main id="editor-panel">
+        <div class="panel-header">
+          <span class="dot"></span>
+          <span class="panel-title">エディタ</span>
+          <div class="header-actions">
+            <span id="syntax-status"></span>
+            <button type="button" class="toolbar-btn" id="btn-format">整形</button>
+            <button type="button" class="toolbar-btn" id="btn-copy">コピー</button>
+            <button type="button" class="toolbar-btn" id="btn-reset">サンプル</button>
+            <button type="button" class="toolbar-btn" id="btn-clear">クリア</button>
+            <button type="button" class="toolbar-btn btn-run" id="btn-run">▶ 実行</button>
+          </div>
+        </div>
+        <div id="editor-container">
+          <div id="line-numbers"></div>
+          <div id="editor-wrap">
+            <pre id="hl-pre" aria-hidden="true"><code id="hl-code"></code></pre>
+            <textarea
+              id="code-textarea"
+              spellcheck="false"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              wrap="off"></textarea>
+          </div>
+        </div>
+
+        <!-- 実行結果 -->
+        <section id="output-panel">
+          <div class="panel-header">
+            <span class="dot"></span>
+            <span class="panel-title">実行結果（SQLite / sql.js）　Ctrl+Enter でも実行できます</span>
+            <div class="header-actions">
+              <button type="button" class="toolbar-btn" id="btn-db-reset">DBリセット</button>
+            </div>
+          </div>
+          <div id="output-body">
+            <span class="placeholder-text">サンプルDB（users / orders）を内蔵しています。「▶ 実行」または Ctrl+Enter でSQLを実行すると、結果がここに表示されます。</span>
+          </div>
+        </section>
+      </main>
+
+    </div>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>
