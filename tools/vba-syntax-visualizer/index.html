@@ -1,1 +1,181 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VBA Syntax Visualizer - 構造可視化ツール</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
 
+    <!-- ヘッダー -->
+    <header id="app-header">
+      <h1 id="app-title">VBA Syntax Visualizer</h1>
+      <span class="badge">構造可視化ツール</span>
+      <button type="button" id="btn-tools">🛠 変換ツール</button>
+    </header>
+
+    <div id="layout">
+
+      <!-- 左サイドバー -->
+      <aside id="sidebar">
+
+        <!-- 説明エリア -->
+        <section class="panel" id="explanation-panel">
+          <div class="panel-header">
+            <span class="dot"></span>
+            <span class="panel-title">説明エリア</span>
+          </div>
+          <div class="panel-body" id="explanation-body">
+            <!-- JSで描画 -->
+          </div>
+        </section>
+
+        <!-- スニペット -->
+        <section class="panel" id="snippets-panel">
+          <div class="panel-header">
+            <span class="dot"></span>
+            <span class="panel-title">スニペット</span>
+            <input type="text" id="snippet-search" class="snippet-search" placeholder="検索...">
+          </div>
+          <div class="panel-body" id="snippets-body">
+            <!-- JSで描画 -->
+          </div>
+        </section>
+
+      </aside>
+
+      <!-- エディタ -->
+      <main id="editor-panel">
+        <div class="panel-header">
+          <span class="dot"></span>
+          <span class="panel-title">エディタ（ハイライト上で編集）</span>
+          <div class="header-actions">
+            <span id="syntax-status"></span>
+            <button type="button" class="toolbar-btn" id="btn-copy">コピー</button>
+            <button type="button" class="toolbar-btn" id="btn-clear">クリア</button>
+            <button type="button" class="toolbar-btn" id="btn-reset">サンプルに戻す</button>
+            <button type="button" class="toolbar-btn btn-format" id="btn-format">整形</button>
+            <button type="button" class="toolbar-btn btn-run" id="btn-run">▶ チェック</button>
+          </div>
+        </div>
+        <div id="editor-container">
+          <div id="line-numbers"></div>
+          <div id="editor-wrap">
+            <pre id="hl-pre" aria-hidden="true"><code id="hl-code"></code></pre>
+            <textarea
+              id="code-textarea"
+              spellcheck="false"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              wrap="off"></textarea>
+          </div>
+        </div>
+
+        <!-- チェック結果 -->
+        <section id="output-panel">
+          <div class="panel-header">
+            <span class="dot"></span>
+            <span class="panel-title">静的チェック結果（Lint + 構造アウトライン）　Ctrl+Enter でも実行できます</span>
+          </div>
+          <div id="output-body">
+            <span class="placeholder-text">「▶ チェック」を押すと、お作法チェックの結果と Sub/Function の一覧がここに表示されます。</span>
+          </div>
+        </section>
+      </main>
+
+    </div>
+  </div>
+
+  <!-- ===== 変換ツール（モーダル） ===== -->
+  <div id="tools-overlay" class="hidden">
+    <div id="tools-modal">
+      <div class="modal-head">
+        <span class="modal-title">🛠 変換ツール（ブラウザ内で計算）</span>
+        <button type="button" id="tools-close" title="閉じる">×</button>
+      </div>
+      <div class="modal-tabs">
+        <button type="button" class="mtab active" data-tab="col">列番号 ⇔ 列文字</button>
+        <button type="button" class="mtab" data-tab="fmt">Format 書式</button>
+        <button type="button" class="mtab" data-tab="re">正規表現</button>
+        <button type="button" class="mtab" data-tab="rgb">色 (RGB)</button>
+      </div>
+      <div class="modal-body">
+
+        <!-- 列変換 -->
+        <section class="tpane" id="pane-col">
+          <div class="tool-row">
+            <label>列文字 → 番号</label>
+            <input type="text" id="col-letter" placeholder="例: AB" autocomplete="off">
+          </div>
+          <div class="tool-out" id="col-letter-out"></div>
+          <div class="tool-row">
+            <label>列番号 → 文字</label>
+            <input type="number" id="col-num" placeholder="例: 28" min="1" autocomplete="off">
+          </div>
+          <div class="tool-out" id="col-num-out"></div>
+        </section>
+
+        <!-- Format -->
+        <section class="tpane hidden" id="pane-fmt">
+          <div class="tool-row">
+            <label>値</label>
+            <input type="text" id="fmt-val" placeholder="例: 1234567 / 0.1234 / 2024/1/1 9:05" autocomplete="off">
+          </div>
+          <div class="tool-row">
+            <label>書式</label>
+            <input type="text" id="fmt-fmt" placeholder="例: #,##0 / 0.0% / yyyy/mm/dd(aaa)" autocomplete="off">
+          </div>
+          <div class="tool-chips" id="fmt-chips"></div>
+          <div class="tool-label">結果</div>
+          <div class="tool-out big" id="fmt-out"></div>
+          <div class="tool-label">VBAコード</div>
+          <pre class="tool-code" id="fmt-code"></pre>
+          <div class="tool-note">数値（#,0,カンマ,%）と日付（yyyy/mm/dd hh:nn:ss aaa ggge）の主要書式に対応。VBA の一部特殊書式は簡易対応です。</div>
+        </section>
+
+        <!-- 正規表現 -->
+        <section class="tpane hidden" id="pane-re">
+          <div class="tool-row">
+            <label>パターン</label>
+            <input type="text" id="re-pat" placeholder="例: ^\d{3}-\d{4}$" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="tool-flags">
+            <label><input type="checkbox" id="re-ic"> IgnoreCase（大小無視）</label>
+            <label><input type="checkbox" id="re-g" checked> Global（全件）</label>
+          </div>
+          <div class="tool-row">
+            <label>テスト文字列</label>
+            <textarea id="re-str" rows="3" spellcheck="false" placeholder="判定したい文字列を入力"></textarea>
+          </div>
+          <div class="tool-label">判定結果</div>
+          <div class="tool-out" id="re-out"></div>
+          <div class="tool-label">VBAコード（VBScript.RegExp）</div>
+          <pre class="tool-code" id="re-code"></pre>
+          <div class="tool-note">JavaScript正規表現で判定しています。VBScript.RegExp とほぼ互換ですが、後読みや一部の記法は挙動が異なる場合があります。</div>
+        </section>
+
+        <!-- 色 -->
+        <section class="tpane hidden" id="pane-rgb">
+          <div class="rgb-grid">
+            <div class="rgb-sliders">
+              <div class="tool-row slim"><label>R</label><input type="range" id="rgb-r" min="0" max="255" value="0"><input type="number" id="rgb-rn" min="0" max="255" value="0"></div>
+              <div class="tool-row slim"><label>G</label><input type="range" id="rgb-g" min="0" max="255" value="112"><input type="number" id="rgb-gn" min="0" max="255" value="112"></div>
+              <div class="tool-row slim"><label>B</label><input type="range" id="rgb-b" min="0" max="255" value="192"><input type="number" id="rgb-bn" min="0" max="255" value="192"></div>
+              <div class="tool-row slim"><label>HEX</label><input type="text" id="rgb-hex" value="#0070C0" autocomplete="off"></div>
+            </div>
+            <div class="rgb-swatch" id="rgb-swatch"></div>
+          </div>
+          <div class="tool-label">VBAコード</div>
+          <pre class="tool-code" id="rgb-code"></pre>
+        </section>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
