@@ -1,1 +1,91 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JS Syntax Visualizer - 構造可視化ツール</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
 
+    <!-- ヘッダー -->
+    <header id="app-header">
+      <h1 id="app-title">JS Syntax Visualizer</h1>
+      <span class="badge">構造可視化ツール</span>
+    </header>
+
+    <div id="layout">
+
+      <!-- 左サイドバー -->
+      <aside id="sidebar">
+
+        <!-- 説明エリア -->
+        <section class="panel" id="explanation-panel">
+          <div class="panel-header">
+            <span class="dot"></span>
+            <span class="panel-title">説明エリア</span>
+          </div>
+          <div class="panel-body" id="explanation-body">
+            <!-- JSで描画 -->
+          </div>
+        </section>
+
+        <!-- スニペット -->
+        <section class="panel" id="snippets-panel">
+          <div class="panel-header">
+            <span class="dot"></span>
+            <span class="panel-title">スニペット</span>
+            <input type="text" id="snippet-search" class="snippet-search" placeholder="検索...">
+          </div>
+          <div class="panel-body" id="snippets-body">
+            <!-- JSで描画 -->
+          </div>
+        </section>
+
+      </aside>
+
+      <!-- エディタ -->
+      <main id="editor-panel">
+        <div class="panel-header">
+          <span class="dot"></span>
+          <span class="panel-title">エディタ（ハイライト上で編集）</span>
+          <div class="header-actions">
+            <span id="syntax-status"></span>
+            <button type="button" class="toolbar-btn" id="btn-copy">コピー</button>
+            <button type="button" class="toolbar-btn" id="btn-clear">クリア</button>
+            <button type="button" class="toolbar-btn" id="btn-reset">サンプルに戻す</button>
+            <button type="button" class="toolbar-btn btn-run" id="btn-run">▶ 実行</button>
+          </div>
+        </div>
+        <div id="editor-container">
+          <div id="line-numbers"></div>
+          <div id="editor-wrap">
+            <pre id="hl-pre" aria-hidden="true"><code id="hl-code"></code></pre>
+            <textarea
+              id="code-textarea"
+              spellcheck="false"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              wrap="off"></textarea>
+          </div>
+        </div>
+
+        <!-- 実行結果 -->
+        <section id="output-panel">
+          <div class="panel-header">
+            <span class="dot"></span>
+            <span class="panel-title">実行結果（console 出力）　Ctrl+Enter でも実行できます</span>
+          </div>
+          <div id="output-body">
+            <span class="placeholder-text">「▶ 実行」を押すと console.log の出力がここに表示されます。</span>
+          </div>
+        </section>
+      </main>
+
+    </div>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>
