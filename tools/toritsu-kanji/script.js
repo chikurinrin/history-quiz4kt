@@ -242,10 +242,10 @@
   // =====================================================
   // 出題キューの作成
   // =====================================================
-  function buildQueue() {
-    // 現在の出題形式（読み／書き）に対応する記録キーで判定する
+  // 現在の設定（形式・レベル・カテゴリ・範囲・優先度）に合う語を集める（並べ替え前）
+  function filteredPool() {
     var useGroups = anyGroupChecked();
-    var pool = allQuestions.filter(function (q) {
+    return allQuestions.filter(function (q) {
       var key = keyOf(q.id, settings.mode);
       if (useGroups) {
         // グループを選んでいるときは、その範囲を出題対象にする（レベル選択より優先）
@@ -270,8 +270,11 @@
       }
       return true;
     });
+  }
 
-    // 苦手→不安→未マスター→マスター済みの順、各グループ内は優先度の高い順（同順はシャッフル）
+  // 学習セッション：苦手→不安→未マスター→習得済みの順、各内は頻出度順（同順はシャッフル）。先頭50問。
+  function buildQueue() {
+    var pool = filteredPool();
     var weakG = [], unsureG = [], freshG = [], doneG = [];
     pool.forEach(function (q) {
       var key = keyOf(q.id, settings.mode);
@@ -284,6 +287,11 @@
     [weakG, unsureG, freshG, doneG].forEach(function (g) { shuffle(g); g.sort(byPri); });
     var ordered = weakG.concat(unsureG, freshG, doneG);
     return ordered.slice(0, QUESTIONS_PER_SESSION);
+  }
+
+  // 自動再生：条件に合う全語を対象に、完全ランダムで並べる（上限なし。ループごとに呼び直して再シャッフル）
+  function buildAutoQueue() {
+    return shuffle(filteredPool());
   }
 
   function shuffle(arr) {
@@ -479,7 +487,7 @@
   //  末尾まで来たら並べ替えて繰り返し（連続再生）。停止するまで続く。
   // =====================================================
   function startAuto() {
-    session.queue = buildQueue();
+    session.queue = buildAutoQueue();
     session.index = 0;
     if (session.queue.length === 0) {
       alert('条件に合う問題がありません。範囲やレベルを変えてください。');
@@ -509,8 +517,8 @@
         if (!auto.on || auto.paused) return;
         session.index++;
         if (session.index >= session.queue.length) {
-          // 最後まで来たら並べ替えて最初から（連続再生）
-          session.queue = buildQueue();
+          // 最後まで来たら再シャッフルして最初から（連続再生・毎回違う順）
+          session.queue = buildAutoQueue();
           session.index = 0;
         }
         autoStep();
@@ -539,7 +547,7 @@
     // 次の問題へ進めて再開
     session.index++;
     if (session.index >= session.queue.length) {
-      session.queue = buildQueue();
+      session.queue = buildAutoQueue();
       session.index = 0;
     }
     autoStep();
