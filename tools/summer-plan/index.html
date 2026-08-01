@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-title" content="夏の進捗">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-<link rel="stylesheet" href="style.css?v=5">
+<link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
 
@@ -70,9 +70,14 @@
       <div class="speed-box">
         <div class="speed-hd">速読タイム<span class="opt">任意</span></div>
         <div class="speed-inputs">
-          <label>語数<input type="number" id="rd-words" min="0" step="10" placeholder="例）800"></label>
-          <label>かかった時間（分）<input type="number" id="rd-min" min="0" step="0.5" placeholder="例）6"></label>
-          <div class="wpm" id="rd-wpm">—</div>
+          <label>語数 <small class="lbl-goal" id="lbl-words"></small>
+            <input type="number" id="rd-words" min="0" step="10" placeholder="例）800"></label>
+          <label>かかった時間（分） <small class="lbl-goal" id="lbl-min"></small>
+            <input type="number" id="rd-min" min="0" step="0.5" placeholder="例）6"></label>
+          <div class="wpm-box">
+            <div class="wpm" id="rd-wpm">—</div>
+            <div class="wpm-goal" id="rd-wpm-goal"></div>
+          </div>
         </div>
         <p class="hint" id="rd-hint">入れておくと、ダッシュボードに速読スピードの推移が出ます。</p>
       </div>
@@ -263,8 +268,8 @@
         <ul>
           <li><b>日中：前に読んだ長文を速読で復習。</b>内容を知っている文章を時間を計って読み直すのが、速度を上げる一番確実な方法。</li>
           <li><b>夜：新しい長文を1題。</b>初見の問題で、設問を先に見てから本文に入る手順を固定する。</li>
-          <li>復習した長文の<b>語数と所要時間</b>を記録すると、wpm（1分あたりの語数）の推移が出ます。1分120語 → 8月末に150語が目安。</li>
-          <li>早稲アカの夏期講習・宿題も同じ画面でチェック。講習がある日は家庭学習を圧縮してよい。</li>
+          <li>復習した長文の<b>語数と所要時間</b>を記録すると、wpm（1分あたりの語数）の推移が出ます。<b>入試標準が1分120語、8月末の目標が150語</b>。語数を入れると「何分で読めば目標か」がラベルに出ます。</li>
+          <li>早稲田アカデミーの夏期講習・宿題も同じ画面でチェック。講習がある日は家庭学習を圧縮してよい。</li>
         </ul>
         <h3>国語</h3>
         <ul>
@@ -293,10 +298,10 @@
             <tr><td>8:00–10:00</td><td>数学（頭が一番働く時間に一番重い教科）</td><td>関数・図形の融合、証明</td></tr>
             <tr><td>10:15–11:30</td><td><b>英語：長文の復習（速読）</b></td><td>既読の文章を計って読み直し、速度を上げる</td></tr>
             <tr><td>11:30–13:30</td><td>昼食（漢字アプリ）・休憩・仮眠20分</td><td>午後の集中を買う時間</td></tr>
-            <tr><td>13:30–17:30</td><td>理科・社会 ／ 早稲アカ 夏期講習</td><td>分野を決めて、教材を1つ回す</td></tr>
+            <tr><td>13:30–17:30</td><td>理科・社会 ／ 早稲田アカデミー 夏期講習</td><td>分野を決めて、教材を1つ回す</td></tr>
             <tr><td>17:30–19:00</td><td>夕食・自由時間・風呂（漢字アプリ）</td><td>ここを削ると続かない</td></tr>
             <tr><td>19:00–20:30</td><td><b>英語：新しい長文 1題</b></td><td>初見の問題を時間内に処理する</td></tr>
-            <tr><td>20:30–21:40</td><td><b>国語：現代文 or 古文 1題</b>（2日ごと）＋塾の宿題</td><td>ない日は弱点ノートの解き直しに充てる</td></tr>
+            <tr><td>20:30–21:40</td><td><b>国語：現代文 or 古文 1題</b>（2日ごと）＋早稲田アカデミーの宿題</td><td>ない日は弱点ノートの解き直しに充てる</td></tr>
             <tr><td>22:30</td><td>就寝</td><td>睡眠を削った勉強は翌日の効率を落とす</td></tr>
           </tbody>
         </table>
@@ -373,8 +378,8 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="data.js?v=5"></script>
-<script src="script.js?v=5"></script>
+<script src="data.js?v=6"></script>
+<script src="script.js?v=6"></script>
 <script>
   // Service Worker（http/https のときだけ。file:// では登録できない）
   if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {

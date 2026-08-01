@@ -403,6 +403,10 @@ function renderEnRows() {
   });
 
   const w = document.getElementById('rd-words'), m = document.getElementById('rd-min');
+  /* 目標スピードをラベルに出す */
+  document.getElementById('lbl-words').textContent = `目標 1分 ${READ_SPEED.goal}語`;
+  document.getElementById('rd-wpm-goal').textContent = `目標 ${READ_SPEED.goal}／標準 ${READ_SPEED.base}`;
+
   w.value = rec.rd.w != null ? rec.rd.w : '';
   m.value = rec.rd.m != null ? rec.rd.m : '';
   const sync = () => {
@@ -422,18 +426,26 @@ function updateWpm() {
   const box = document.getElementById('rd-wpm');
   const hint = document.getElementById('rd-hint');
   const w = Number(rec.rd.w), m = Number(rec.rd.m);
+
+  /* 語数を入れたら「何分で読めば目標か」を時間のラベルに出す */
+  document.getElementById('lbl-min').textContent = w > 0
+    ? `この語数なら ${(w / READ_SPEED.goal).toFixed(1)}分で目標`
+    : '';
+
   if (!(w > 0 && m > 0)) {
     box.textContent = '—';
     box.className = 'wpm';
-    hint.textContent = '入れておくと、ダッシュボードに速読スピードの推移が出ます。';
+    hint.textContent = `入れておくと、ダッシュボードに速読スピードの推移が出ます（目標 1分${READ_SPEED.goal}語）。`;
     return;
   }
   const wpm = Math.round(w / m);
   box.innerHTML = `${wpm}<small>wpm</small>`;
-  box.className = 'wpm ' + (wpm >= 150 ? 'good' : wpm >= 120 ? 'mid' : 'low');
-  hint.textContent = wpm >= 150 ? '目標の150wpmに到達。この速度を維持する。'
-    : wpm >= 120 ? '入試標準ペース。8月末の150wpmまであと少し。'
-      : '目安は1分120語。まずは同じ長文をもう一度、時間を計って読み直す。';
+  box.className = 'wpm ' + (wpm >= READ_SPEED.goal ? 'good' : wpm >= READ_SPEED.base ? 'mid' : 'low');
+  hint.textContent = wpm >= READ_SPEED.goal
+    ? `目標の${READ_SPEED.goal}wpmに到達。この速度を維持する。`
+    : wpm >= READ_SPEED.base
+      ? `入試標準ペース。目標の${READ_SPEED.goal}wpmまであと${READ_SPEED.goal - wpm}。`
+      : `目安は1分${READ_SPEED.base}語。まずは同じ長文をもう一度、時間を計って読み直す。`;
 }
 
 /* ---- 国語 ---- */
@@ -628,7 +640,7 @@ function renderSpeedChart() {
   const W = Math.max(host.clientWidth || 640, Math.min(data.length * 60 + 90, 1100));
   const H = 260, mL = 44, mR = 24, mT = 16, mB = 34;
   const iw = W - mL - mR, ih = H - mT - mB;
-  const maxV = niceMax(Math.max(160, ...data.map(d => d.wpm)), 20);
+  const maxV = niceMax(Math.max(READ_SPEED.goal + 10, ...data.map(d => d.wpm)), 20);
   const x = i => data.length === 1 ? mL + iw / 2 : mL + (i / (data.length - 1)) * iw;
   const y = v => mT + ih - (v / maxV) * ih;
 
@@ -637,7 +649,7 @@ function renderSpeedChart() {
     svg.appendChild(el('line', { x1: mL, x2: W - mR, y1: y(v), y2: y(v), stroke: 'var(--grid)', 'stroke-width': 1 }));
     svg.appendChild(el('text', { x: mL - 7, y: y(v) + 4, 'text-anchor': 'end', fill: 'var(--ink-muted)', 'font-size': 10 }, v));
   }
-  [[120, '入試標準 120wpm'], [150, '目標 150wpm']].forEach(([v, label]) => {
+  [[READ_SPEED.base, `入試標準 ${READ_SPEED.base}wpm`], [READ_SPEED.goal, `目標 ${READ_SPEED.goal}wpm`]].forEach(([v, label]) => {
     svg.appendChild(el('line', {
       x1: mL, x2: W - mR, y1: y(v), y2: y(v),
       stroke: 'var(--axis)', 'stroke-width': 2, 'stroke-dasharray': '5 4',
@@ -834,13 +846,14 @@ function sectionHeadHTML(sk) {
   const done = undDist(sk)[3];
   const pct = fields.length ? Math.round(done / fields.length * 100) : 0;
   const reps = fields.reduce((a, f) => a + REP_MATERIALS.reduce((b, m) => b + repOf(f.id, m.key), 0), 0);
+  /* スマホの縦画面でも1行に収まるよう、狭いときは .up-lbl を隠す */
   return `<h3><i class="dot" style="background:${subjColor(meta.slot)}"></i>${meta.label}
       <span class="sec-count">${fields.length}分野</span></h3>
     <div class="unit-progress">
-      <span>◎ できる ${done}/${fields.length}</span>
+      <span class="up-item">◎<span class="up-lbl"> できる</span> ${done}/${fields.length}</span>
       <span class="bar-mini"><i style="width:${pct}%"></i></span>
-      <span>${pct}%</span>
-      <span class="rep-total">繰り返し合計 ${reps}回</span>
+      <span class="up-item">${pct}%</span>
+      <span class="up-item rep-total">↻<span class="up-lbl"> 繰り返し合計</span> ${reps}回</span>
     </div>`;
 }
 function refreshFpHead(sk) {
@@ -1089,11 +1102,11 @@ function renderStats() {
     <div class="stat"><div class="k">速読スピード</div>
       <div class="v">${lastSp ? lastSp.wpm : '—'}<small>wpm</small></div>
       <div class="m">${lastSp
-        ? (spDelta == null ? '目標 150wpm'
-          : spDelta >= 0 ? `<span style="color:var(--good-text)">前回より +${spDelta}</span>／目標 150`
-            : `前回より ${spDelta}／目標 150`)
+        ? (spDelta == null ? `目標 ${READ_SPEED.goal}wpm`
+          : spDelta >= 0 ? `<span style="color:var(--good-text)">前回より +${spDelta}</span>／目標 ${READ_SPEED.goal}`
+            : `前回より ${spDelta}／目標 ${READ_SPEED.goal}`)
         : '英語の語数と時間を入れると出ます'}</div>
-      <div class="bar-mini"><i style="width:${lastSp ? pct(lastSp.wpm, 150) : 0}%"></i></div></div>
+      <div class="bar-mini"><i style="width:${lastSp ? pct(lastSp.wpm, READ_SPEED.goal) : 0}%"></i></div></div>
 
     <div class="stat"><div class="k">理解度「◎ できる」</div>
       <div class="v">${pct(fDone, fTotal)}<small>%</small></div>

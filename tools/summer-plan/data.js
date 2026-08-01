@@ -3,6 +3,13 @@
    （進学指導重点校＝国数英が自校作成、理社が都立共通問題 を前提にした設計）
    ========================================================= */
 
+/* 通っている塾の名前（ここを書き換えれば全画面に反映される） */
+const JUKU = '早稲田アカデミー';
+
+/* 速読の目標スピード（1分あたりの語数）
+   base = 入試標準ペース / goal = 夏の終わりに到達したい速度 */
+const READ_SPEED = { base: 120, goal: 150 };
+
 /* 教科定義（slot はカテゴリカル配色のスロット番号） */
 const SUBJECTS = [
   { key: 'jp', name: '国語', slot: 1 },
@@ -21,8 +28,8 @@ const MATERIALS = [
   { key: 'sel',  name: '必勝セレクト', full: '必勝セレクト問題', rep: true },
   { key: 'kako', name: '過去問',       full: '過去問題',         rep: true },
   { key: 'text', name: '教科書',       full: '教科書確認',       rep: false },
-  { key: 'juku', name: '夏期講習',     full: '早稲アカ 夏期講習', rep: false },
-  { key: 'hw',   name: '宿題',         full: '早稲アカ 宿題',    rep: false },
+  { key: 'juku', name: '夏期講習',     full: JUKU + ' 夏期講習', rep: false },
+  { key: 'hw',   name: '宿題',         full: JUKU + ' 宿題',     rep: false },
 ];
 const REP_MATERIALS = MATERIALS.filter(m => m.rep);
 
@@ -113,8 +120,8 @@ function fieldList(subjKey) {
 const EN_DAILY = [
   { key: 'rev',  name: '長文の復習（速読）', when: '日中', note: '前に読んだ長文を、時間を計って読み直す' },
   { key: 'new',  name: '新しい長文 1題',     when: '夜',   note: '初見の問題。設問を先に見てから本文へ' },
-  { key: 'juku', name: '早稲アカ 夏期講習',  when: '',     note: '' },
-  { key: 'hw',   name: '早稲アカ 宿題',      when: '',     note: '' },
+  { key: 'juku', name: JUKU + ' 夏期講習',   when: '',     note: '' },
+  { key: 'hw',   name: JUKU + ' 宿題',       when: '',     note: '' },
 ];
 
 /* -----------------------------------------------------
@@ -125,8 +132,8 @@ const JP_DAILY = [
   { key: 'kanji',  name: '漢字アプリを流す',  when: '食事・風呂', every: 1, note: '苦手・不安のものだけ。読みは完璧にする' },
   { key: 'gendai', name: '現代文 1題',        when: '夜',        every: 2, note: '論説文は論旨、小説は感情の変化を整理する' },
   { key: 'kobun',  name: '古文 1題',          when: '夜',        every: 2, note: '作品ごとのポイントも押さえる' },
-  { key: 'juku',   name: '早稲アカ 夏期講習', when: '',          every: 0, note: '' },
-  { key: 'hw',     name: '早稲アカ 宿題',     when: '',          every: 0, note: '' },
+  { key: 'juku',   name: JUKU + ' 夏期講習',  when: '',          every: 0, note: '' },
+  { key: 'hw',     name: JUKU + ' 宿題',      when: '',          every: 0, note: '' },
 ];
 
 /* -----------------------------------------------------
@@ -161,7 +168,7 @@ const PHASES = [
       '数学は答えだけでなく途中式を残す。自校作成校は部分点で差がつく',
     ],
     focus: [
-      { subj: '英語', text: '速読タイムを記録して伸びを見る。復習長文は1分120語 → 150語を目標に' },
+      { subj: '英語', text: `速読タイムを記録して伸びを見る。復習長文は1分${READ_SPEED.base}語 → ${READ_SPEED.goal}語を目標に` },
       { subj: '数学', text: '関数と図形の融合・相似・三平方・空間図形に時間を寄せる' },
       { subj: '国語', text: '現代文の記述、古文の作品ポイントを蓄積する。2日ごとを崩さない' },
       { subj: '理社', text: '過去問へ移行。理解度が「△」のまま残っている分野を狙い撃ちする' },
