@@ -25,13 +25,25 @@ const SUBJECTS = [
    rep: true のものは「繰り返した回数」を入力できる
    ----------------------------------------------------- */
 const MATERIALS = [
-  { key: 'sel',  name: '問題集',       full: '問題集',           rep: true },
-  { key: 'kako', name: '過去問',       full: '過去問題',         rep: false },
-  { key: 'text', name: '教科書',       full: '教科書確認',       rep: false },
-  { key: 'juku', name: '夏期講習',     full: JUKU + ' 夏期講習', rep: false },
-  { key: 'hw',   name: '宿題',         full: JUKU + ' 宿題',     rep: false },
+  { key: 'sel',  name: '問題集',   full: '問題集' },
+  { key: 'kako', name: '過去問',   full: '過去問題' },
+  { key: 'text', name: '教科書',   full: '教科書確認' },
+  { key: 'juku', name: '夏期講習', full: JUKU + ' 夏期講習' },
+  { key: 'hw',   name: '宿題',     full: JUKU + ' 宿題' },
 ];
-const REP_MATERIALS = MATERIALS.filter(m => m.rep);
+
+/* -----------------------------------------------------
+   「分野の進捗」タブで繰り返した回数（周回数）を数える教材。
+   教科ごとに変えられる。理科・社会は学校のワークも数える。
+   ----------------------------------------------------- */
+const REP_ITEMS = {
+  ma: [{ key: 'sel',  name: '問題集', short: '問' }],
+  sc: [{ key: 'sel',  name: '問題集', short: '問' },
+       { key: 'work', name: 'ワーク', short: 'ワ' }],
+  so: [{ key: 'sel',  name: '問題集', short: '問' },
+       { key: 'work', name: 'ワーク', short: 'ワ' }],
+};
+const repItems = sk => REP_ITEMS[sk] || [];
 
 /* -----------------------------------------------------
    理解度（自己申告。分野ごとに自分で入力・更新する）

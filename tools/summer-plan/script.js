@@ -252,9 +252,13 @@ function undDist(subjKey) {
 function allFields() {
   return Object.keys(FIELDS).reduce((a, k) => a.concat(fieldList(k)), []);
 }
-function totalReps() {
-  return Object.keys(state.reps).reduce((a, id) =>
-    a + REP_MATERIALS.reduce((b, m) => b + repOf(id, m.key), 0), 0);
+const subjOfField = id => id.split('-')[0];
+/* 分野の周回数の合計（教科を絞ることもできる） */
+function totalReps(subjKey) {
+  const keys = subjKey ? [subjKey] : Object.keys(FIELDS);
+  return keys.reduce((a, sk) =>
+    a + fieldList(sk).reduce((b, f) =>
+      b + repItems(sk).reduce((c, m) => c + repOf(f.id, m.key), 0), 0), 0);
 }
 
 /* ---------------- 記録アクセス ---------------- */
@@ -845,7 +849,8 @@ function sectionHeadHTML(sk) {
   const fields = fieldList(sk);
   const done = undDist(sk)[3];
   const pct = fields.length ? Math.round(done / fields.length * 100) : 0;
-  const reps = fields.reduce((a, f) => a + REP_MATERIALS.reduce((b, m) => b + repOf(f.id, m.key), 0), 0);
+  const reps = totalReps(sk);
+  const repNames = repItems(sk).map(m => m.name).join('・');
   /* スマホの縦画面でも1行に収まるよう、狭いときは .up-lbl を隠す */
   return `<h3><i class="dot" style="background:${subjColor(meta.slot)}"></i>${meta.label}
       <span class="sec-count">${fields.length}分野</span></h3>
@@ -853,7 +858,7 @@ function sectionHeadHTML(sk) {
       <span class="up-item">◎<span class="up-lbl"> できる</span> ${done}/${fields.length}</span>
       <span class="bar-mini"><i style="width:${pct}%"></i></span>
       <span class="up-item">${pct}%</span>
-      <span class="up-item rep-total">↻<span class="up-lbl"> 繰り返し合計</span> ${reps}回</span>
+      <span class="up-item rep-total" title="${repNames}の周回数の合計">↻<span class="up-lbl"> ${repNames}</span> ${reps}回</span>
     </div>`;
 }
 function refreshFpHead(sk) {
@@ -950,32 +955,36 @@ function fieldProgressRow(f, counts) {
   row.appendChild(lvBox);
 
   /* 繰り返し回数 */
+  const sk = subjOfField(f.id);
+  const items = repItems(sk);
   const repBox = document.createElement('div');
   repBox.className = 'fp-reps';
-  REP_MATERIALS.forEach(m => {
+  row.classList.add('reps' + items.length);   /* CSS で幅の配分を変えるため */
+  items.forEach(m => {
     const n = repOf(f.id, m.key);
     const wrap = document.createElement('div');
-    wrap.className = 'rep' + (n > 0 ? ' on' : '');
-    wrap.innerHTML = `<span class="rep-name">${m.name}</span>`;
+    wrap.className = 'rep rep-' + m.key + (n > 0 ? ' on' : '');
+    wrap.innerHTML = `<span class="rep-name">${m.name}</span>`
+      + `<span class="rep-short" aria-hidden="true">${m.short}</span>`;
     const stepper = document.createElement('div');
     stepper.className = 'stepper';
     const minus = document.createElement('button');
     minus.type = 'button'; minus.className = 'st-btn'; minus.textContent = '−';
-    minus.title = `${m.full} の回数を1減らす`;
-    minus.setAttribute('aria-label', `${f.name} ${m.full} の回数を減らす`);
+    minus.title = `${m.name} の回数を1減らす`;
+    minus.setAttribute('aria-label', `${f.name} ${m.name} の回数を減らす`);
     const val = document.createElement('span');
     val.className = 'st-val';
     val.textContent = n ? `${n}周` : '−';
     const plus = document.createElement('button');
     plus.type = 'button'; plus.className = 'st-btn'; plus.textContent = '＋';
-    plus.title = `${m.full} の回数を1増やす`;
-    plus.setAttribute('aria-label', `${f.name} ${m.full} の回数を増やす`);
+    plus.title = `${m.name} の回数を1増やす`;
+    plus.setAttribute('aria-label', `${f.name} ${m.name} の回数を増やす`);
     const bump = d => () => {
       setRep(f.id, m.key, repOf(f.id, m.key) + d);
       const nv = repOf(f.id, m.key);
       val.textContent = nv ? `${nv}周` : '−';
       wrap.classList.toggle('on', nv > 0);
-      refreshFpHead(f.id.split('-')[0]);
+      refreshFpHead(sk);
       renderStats();
     };
     minus.onclick = bump(-1);
@@ -1116,7 +1125,7 @@ function renderStats() {
 
     <div class="stat"><div class="k">繰り返し回数</div>
       <div class="v">${totalReps()}<small>周</small></div>
-      <div class="m">問題集をまわした回数の合計</div></div>
+      <div class="m">問題集・ワークをまわした回数</div></div>
 
     <div class="stat"><div class="k">累計学習時間</div>
       <div class="v">${th.toFixed(1)}<small>時間</small></div>
