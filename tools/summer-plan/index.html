@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>夏の進捗管理</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#256abf">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="夏の進捗">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="stylesheet" href="style.css?v=5">
+</head>
+<body>
+
+<header class="app-header">
+  <div class="hd-inner">
+    <div class="hd-title">
+      <h1><span id="hd-school">希望校</span> 合格プロジェクト</h1>
+      <p class="hd-sub">中3の夏休み — 進捗管理ボード</p>
+    </div>
+    <div class="hd-chips" id="hd-chips"></div>
+  </div>
+  <nav class="tabs" id="tabs">
+    <button class="tab active" data-view="today">今日の記録</button>
+    <button class="tab" data-view="dash">ダッシュボード</button>
+    <button class="tab" data-view="fields">分野の進捗</button>
+    <button class="tab" data-view="plan">夏の工程表</button>
+    <button class="tab" data-view="calc">合格ライン逆算</button>
+    <button class="tab" data-view="guide">攻略ガイド</button>
+    <button class="tab" data-view="settings">設定</button>
+  </nav>
+</header>
+
+<div id="banner-wrap"></div>
+
+<main class="wrap">
+
+  <!-- ===================== 今日の記録 ===================== -->
+  <section class="view active" id="view-today">
+    <div class="card day-head">
+      <div class="row-between">
+        <div>
+          <h2 id="today-title">今日の記録</h2>
+          <p class="card-sub" id="today-sub"></p>
+        </div>
+        <div class="date-nav">
+          <button class="btn-icon" id="day-prev" title="前の日">◀</button>
+          <input type="date" id="day-picker">
+          <button class="btn-icon" id="day-next" title="次の日">▶</button>
+          <button class="btn-ghost" id="day-today">今日</button>
+        </div>
+      </div>
+      <div class="day-summary" id="day-summary"></div>
+    </div>
+
+    <!-- 英語 -->
+    <div class="card subj-card" data-subj="en">
+      <div class="card-hd">
+        <h2><i class="dot"></i>英語 — 毎日</h2>
+        <p class="card-sub">長文をどれだけ速く読めるかが勝負。日中は既読の長文を速読で復習、夜は初見の問題。</p>
+      </div>
+      <div class="chk-rows" id="en-rows"></div>
+      <div class="speed-box">
+        <div class="speed-hd">速読タイム<span class="opt">任意</span></div>
+        <div class="speed-inputs">
+          <label>語数<input type="number" id="rd-words" min="0" step="10" placeholder="例）800"></label>
+          <label>かかった時間（分）<input type="number" id="rd-min" min="0" step="0.5" placeholder="例）6"></label>
+          <div class="wpm" id="rd-wpm">—</div>
+        </div>
+        <p class="hint" id="rd-hint">入れておくと、ダッシュボードに速読スピードの推移が出ます。</p>
+      </div>
+    </div>
+
+    <!-- 国語 -->
+    <div class="card subj-card" data-subj="jp">
+      <div class="card-hd">
+        <h2><i class="dot"></i>国語</h2>
+        <p class="card-sub">漢字は毎日、現代文と古文は2日ごとに夜1題。</p>
+      </div>
+      <div class="chk-rows" id="jp-rows"></div>
+    </div>
+
+    <!-- 数学・理科・社会（分野 × 教材） -->
+    <div class="card subj-card" data-subj="ma">
+      <div class="card-hd"><h2><i class="dot"></i>数学</h2>
+        <p class="card-sub">全20分野。やった分野の、やった教材をタップする。</p></div>
+      <div id="grid-ma"></div>
+    </div>
+
+    <div class="card subj-card" data-subj="sc">
+      <div class="card-hd"><h2><i class="dot"></i>理科</h2>
+        <p class="card-sub">12分野。共通問題なので、ここを落とさないのが最優先。</p></div>
+      <div id="grid-sc"></div>
+    </div>
+
+    <div class="card subj-card" data-subj="so">
+      <div class="card-hd"><h2><i class="dot"></i>社会</h2>
+        <p class="card-sub">地理10・歴史10・公民8 の全28分野。</p></div>
+      <div id="grid-so"></div>
+    </div>
+
+    <!-- 時間・メモ -->
+    <div class="card">
+      <div class="card-hd"><h2>学習時間とメモ</h2>
+        <p class="card-sub">時間は入れなくても他の記録には影響しません。</p></div>
+      <div class="time-grid" id="time-grid"></div>
+      <p class="time-total" id="time-total"></p>
+      <h3 class="sec-title">メモ（できなかった理由・気づき）</h3>
+      <textarea id="day-memo" rows="3" placeholder="例）長文の速読、固有名詞が出ると止まる。関数と図形の融合で手が止まる。"></textarea>
+      <div class="save-note" id="save-note"></div>
+    </div>
+  </section>
+
+  <!-- ===================== ダッシュボード ===================== -->
+  <section class="view" id="view-dash">
+    <div class="stat-row" id="stat-row"></div>
+
+    <div class="card viz-root">
+      <div class="card-hd">
+        <h2>速読スピードの推移</h2>
+        <p class="card-sub">1分あたりに読んだ語数（wpm）。「今日の記録」の英語で語数と時間を入れた日だけ点が打たれます。</p>
+      </div>
+      <div id="chart-speed" class="chart"></div>
+    </div>
+
+    <div class="card viz-root">
+      <div class="card-hd">
+        <h2>教科別の理解度</h2>
+        <p class="card-sub">「分野の進捗」タブで入力した理解度の分布。右に伸びているほど仕上がっています。</p>
+      </div>
+      <div id="chart-understand" class="chart"></div>
+      <div class="level-legend" id="level-legend-dash"></div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card viz-root">
+        <div class="card-hd">
+          <h2>日ごとの学習時間</h2>
+          <p class="card-sub">バーにカーソルを合わせると内訳が出ます。クリックでその日の記録へ。</p>
+        </div>
+        <div id="chart-daily" class="chart"></div>
+      </div>
+
+      <div class="card viz-root">
+        <div class="card-hd">
+          <h2>教科別の累計時間</h2>
+          <p class="card-sub">配分が偏っていないかを確認する。</p>
+        </div>
+        <div id="chart-subject" class="chart"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-hd"><h2>直近7日の実施状況</h2>
+        <p class="card-sub">毎日やる項目が途切れていないかを見る。</p></div>
+      <div class="table-scroll"><div id="week-grid"></div></div>
+    </div>
+  </section>
+
+  <!-- ===================== 分野の進捗（理解度・繰り返し回数） ===================== -->
+  <section class="view" id="view-fields">
+    <div class="card">
+      <div class="card-hd">
+        <h2>分野ごとの理解度と繰り返し回数</h2>
+        <p class="card-sub">
+          <b>理解度は自分で入力・更新する</b>ボタンです。手ごたえが変わったらその都度押し替えてください。
+          必勝セレクトと過去問は<b>繰り返した回数（周回数）</b>を − / ＋ で増減できます。
+        </p>
+      </div>
+      <div class="level-legend" id="level-legend"></div>
+      <div class="fp-filter" id="fp-filter"></div>
+      <div id="field-prog"></div>
+    </div>
+  </section>
+
+  <!-- ===================== 工程表 ===================== -->
+  <section class="view" id="view-plan">
+    <div class="card">
+      <div class="card-hd">
+        <h2>40日の設計図</h2>
+        <p class="card-sub">毎日やることは変えず、期ごとに「どこに時間を寄せるか」を変える。日付は設定タブの期間から自動計算されます。</p>
+      </div>
+      <div id="phase-cards"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-hd">
+        <h2>日別カレンダー</h2>
+        <p class="card-sub">チェックが多い日ほど色が濃くなります。クリックするとその日の記録画面へ。</p>
+      </div>
+      <div id="calendar"></div>
+      <div class="legend-cal">
+        <span><i class="sw sw0"></i>記録なし</span>
+        <span><i class="sw sw1"></i>少し</span>
+        <span><i class="sw sw2"></i>そこそこ</span>
+        <span><i class="sw sw3"></i>しっかり</span>
+        <span><i class="sw sw4"></i>フル</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== 逆算 ===================== -->
+  <section class="view" id="view-calc">
+    <div class="card">
+      <div class="card-hd">
+        <h2>合格ライン逆算シミュレータ</h2>
+        <p class="card-sub">都立の一般入試は <b>学力検査 700点 ＋ 調査書 300点 ＋ ESAT-J 20点 ＝ 1020点満点</b>。内申から、当日必要な点数を逆算します。最初に一度だけ入れておけば十分です。</p>
+      </div>
+
+      <div class="calc-grid">
+        <div class="calc-col">
+          <h3 class="sec-title">1学期の内申（評定 1〜5）</h3>
+          <p class="hint">実技4教科は2倍で換算されます。</p>
+          <div class="naishin" id="naishin-five"></div>
+          <div class="naishin" id="naishin-four"></div>
+          <div class="fld"><label for="esat">ESAT-J の想定グレード</label>
+            <select id="esat"><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option></select>
+          </div>
+          <div class="fld"><label for="target-total">目標とする総合得点（1020点満点）</label>
+            <input type="number" id="target-total" min="0" max="1020" step="1">
+          </div>
+        </div>
+        <div class="calc-col">
+          <h3 class="sec-title">計算結果</h3>
+          <div id="calc-result"></div>
+        </div>
+      </div>
+      <p class="disclaimer">※ ボーダーラインは年度・倍率によって動きます。ここでの目標点はあくまで目安です。必ず学校説明会や最新の入試要項、模試の判定資料で確認してください。</p>
+    </div>
+  </section>
+
+  <!-- ===================== 攻略ガイド ===================== -->
+  <section class="view" id="view-guide">
+
+    <div class="card">
+      <div class="card-hd"><h2>まず、希望校の入試のかたちを知る</h2></div>
+      <div class="prose">
+        <p>希望校は東京都の<b>進学指導重点校</b>で、<b>国語・数学・英語が自校作成問題</b>（学校独自の問題）、<b>理科・社会は都立共通問題</b>です。この構造が、夏の戦略をほぼ決めます。</p>
+        <div class="callout">
+          <b>結論：夏は「理社を満点近くまで上げる」ことが最優先。</b>
+          共通問題の理社は、夏の40日で 60点台 → 90点台まで動かせます。一方で自校作成の国数英は平均点が低く、周りも取れません。理社で確実に稼ぎ、国数英で崩れない——これが重点校受験の定石です。
+        </div>
+        <ul>
+          <li><b>数学</b>：答えだけでなく途中式が採点される。証明・記述で部分点を拾えるかが分かれ目。</li>
+          <li><b>英語</b>：語数が多く、全訳していると時間が足りない。<b>読む速度そのものが得点力</b>になる。</li>
+          <li><b>国語</b>：200字作文と記述の比重が大きい。書く速度も同様に得点力になる。</li>
+          <li><b>理科・社会</b>：共通問題。資料読み取りと実験考察を落とさなければ90点台が見える。</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-hd"><h2>毎日のかたち</h2></div>
+      <div class="prose">
+        <h3>英語 — 速く読めるようにする</h3>
+        <ul>
+          <li><b>日中：前に読んだ長文を速読で復習。</b>内容を知っている文章を時間を計って読み直すのが、速度を上げる一番確実な方法。</li>
+          <li><b>夜：新しい長文を1題。</b>初見の問題で、設問を先に見てから本文に入る手順を固定する。</li>
+          <li>復習した長文の<b>語数と所要時間</b>を記録すると、wpm（1分あたりの語数）の推移が出ます。1分120語 → 8月末に150語が目安。</li>
+          <li>早稲アカの夏期講習・宿題も同じ画面でチェック。講習がある日は家庭学習を圧縮してよい。</li>
+        </ul>
+        <h3>国語</h3>
+        <ul>
+          <li><b>漢字：毎日</b>。苦手・不安なものだけをアプリで、食事中と風呂で流す。机の時間は使わない。読みは完璧にする。</li>
+          <li><b>現代文：2日ごとに夜1題。</b>論説文は論旨、小説は感情の変化を整理してから答え合わせをする。</li>
+          <li><b>古文：2日ごとに夜1題。</b>作品ごとのポイント（時代・ジャンル・頻出の言い回し）も一緒に押さえる。</li>
+          <li>現代文と古文は前回からの日数がボタンの横に出ます。<b>2日空いたら赤くなる</b>ので、それを合図に。</li>
+        </ul>
+        <h3>数学・理科・社会 — 分野 × 教材でチェック</h3>
+        <ul>
+          <li>やった<b>分野</b>の、やった<b>教材</b>（必勝セレクト／過去問／教科書確認／夏期講習／宿題）をタップするだけ。</li>
+          <li>分野は 数学20・理科12・社会28。細かく分けてあるので「どこが手つかずか」がはっきり出ます。</li>
+          <li><b>理解度は「分野の進捗」タブで自分で入力・更新する。</b>やった量ではなく手ごたえで進捗を測るための項目です。</li>
+          <li>必勝セレクトと過去問は、同じタブで<b>繰り返した回数</b>を記録します。1周では足りません。2〜3周を目安に。</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-hd"><h2>1日のタイムテーブル（例）</h2></div>
+      <div class="table-scroll">
+        <table class="tbl static">
+          <thead><tr><th>時間</th><th>内容</th><th>ねらい</th></tr></thead>
+          <tbody>
+            <tr><td>7:00–8:00</td><td>起床・朝食（漢字アプリを流す）</td><td>入試の朝に合わせて体内時計を固定する</td></tr>
+            <tr><td>8:00–10:00</td><td>数学（頭が一番働く時間に一番重い教科）</td><td>関数・図形の融合、証明</td></tr>
+            <tr><td>10:15–11:30</td><td><b>英語：長文の復習（速読）</b></td><td>既読の文章を計って読み直し、速度を上げる</td></tr>
+            <tr><td>11:30–13:30</td><td>昼食（漢字アプリ）・休憩・仮眠20分</td><td>午後の集中を買う時間</td></tr>
+            <tr><td>13:30–17:30</td><td>理科・社会 ／ 早稲アカ 夏期講習</td><td>分野を決めて、教材を1つ回す</td></tr>
+            <tr><td>17:30–19:00</td><td>夕食・自由時間・風呂（漢字アプリ）</td><td>ここを削ると続かない</td></tr>
+            <tr><td>19:00–20:30</td><td><b>英語：新しい長文 1題</b></td><td>初見の問題を時間内に処理する</td></tr>
+            <tr><td>20:30–21:40</td><td><b>国語：現代文 or 古文 1題</b>（2日ごと）＋塾の宿題</td><td>ない日は弱点ノートの解き直しに充てる</td></tr>
+            <tr><td>22:30</td><td>就寝</td><td>睡眠を削った勉強は翌日の効率を落とす</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-hd"><h2>やらないことリスト</h2></div>
+      <div class="prose">
+        <ul>
+          <li><b>教材を増やさない。</b>必勝セレクトと過去問を回す。買い足した瞬間に全部が中途半端になる。</li>
+          <li><b>丸つけで終わらせない。</b>間違えた問題は弱点ノートへ。同じ問題を3回解き直す。</li>
+          <li><b>時間を計らない演習をしない。</b>特に英語の長文。速度は計らないと上がらない。</li>
+          <li><b>解答を写して満足しない。</b>解説を読んだあとは、必ず何も見ずにもう一度解く。</li>
+          <li><b>睡眠を削らない。</b>夜更かしで積んだ1時間は、翌日2時間分の効率を落とす。</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-hd"><h2>内申（調査書）のこと</h2></div>
+      <div class="prose">
+        <p>都立入試は<b>調査書が300点</b>を占め、実技4教科は評定が2倍で換算されます。学力検査だけでは届きません。</p>
+        <ul>
+          <li>夏の課題・提出物は期限より前に、完成度を上げて出す。</li>
+          <li>実技4教科（音楽・美術・保健体育・技術家庭）は、2学期の実技テストと提出物で評定が動く。夏のうちに苦手なところを確認しておく。</li>
+          <li>推薦入試（作文＋集団討論＋個人面接）を視野に入れるなら、夏から週1本の作文練習を始めておくと秋が楽になる。</li>
+        </ul>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ===================== 設定 ===================== -->
+  <section class="view" id="view-settings">
+    <div class="card">
+      <div class="card-hd"><h2>設定</h2><p class="card-sub">記録はこのブラウザの中（localStorage）だけに保存されます。サーバーには何も送信されません。</p></div>
+      <div class="calc-grid">
+        <div class="calc-col">
+          <div class="fld"><label for="set-name">名前（任意）</label><input type="text" id="set-name" placeholder="例）たいき"></div>
+          <div class="fld"><label for="set-school">希望校（任意）</label>
+            <input type="text" id="set-school" placeholder="空欄なら「希望校」と表示されます">
+            <p class="hint">入力した名前はこの端末の中にだけ保存され、どこにも送信されません。空欄のままでも使えます。</p>
+          </div>
+          <div class="fld"><label for="set-start">夏休みの開始日</label><input type="date" id="set-start"></div>
+          <div class="fld"><label for="set-end">夏休みの終了日</label><input type="date" id="set-end"></div>
+          <div class="fld"><label for="set-exam">入試日（目安）</label><input type="date" id="set-exam"></div>
+          <div class="fld"><label for="set-goal">1日の目標学習時間</label><input type="number" id="set-goal" min="1" max="16" step="0.5"></div>
+        </div>
+        <div class="calc-col">
+          <h3 class="sec-title">データの管理</h3>
+          <div class="data-status" id="data-status"></div>
+          <p class="hint">
+            記録はこの端末のブラウザの中にしかありません。<b>「閲覧データの削除」やブラウザの入れ替えで消えます。</b>
+            週に1回、書き出したファイルをクラウドやメールに保存しておいてください。
+          </p>
+          <div class="btn-row">
+            <button class="btn-primary" id="btn-export">JSONで書き出す（バックアップ）</button>
+            <button class="btn-ghost" id="btn-import">JSONを読み込む</button>
+            <input type="file" id="file-import" accept="application/json" hidden>
+          </div>
+          <div class="btn-row">
+            <button class="btn-danger" id="btn-reset">すべての記録を削除</button>
+          </div>
+
+          <h3 class="sec-title">スマホで使う</h3>
+          <p class="hint" id="install-hint"></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="data.js?v=5"></script>
+<script src="script.js?v=5"></script>
+<script>
+  // Service Worker（http/https のときだけ。file:// では登録できない）
+  if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js').catch(function (e) {
+        console.warn('Service Worker を登録できませんでした', e);
+      });
+    });
+  }
+</script>
+</body>
+</html>
