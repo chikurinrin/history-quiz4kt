@@ -29,7 +29,10 @@ const DEFAULT_STATE = () => {
   return {
     settings: {
       name: '', school: '', start: s.start, end: s.end, exam: s.exam,
-      goalHours: 10, targetTotal: 760,
+      goalHours: 10,
+      /* 当日の目標点（素点）。国数英の既定は自校作成3科の過去8年平均 */
+      goals: { jp: 56, ma: 53, en: 56, sc: 90, so: 90 },
+      goalPreset: 'avg8',
       lastBackup: '',   /* 最後にJSONを書き出した日時（ISO文字列） */
     },
     /* days[日付] = { h:教科別時間, en:英語チェック, jp:国語チェック,
@@ -61,8 +64,11 @@ function load() {
     if (!raw) return DEFAULT_STATE();
     const parsed = JSON.parse(raw);
     const base = DEFAULT_STATE();
+    const defGoals = Object.assign({}, base.settings.goals);   /* 上書き前に既定を控える */
+    const st = Object.assign(base.settings, parsed.settings || {});
+    st.goals = Object.assign({}, defGoals, st.goals || {});
     return {
-      settings: Object.assign(base.settings, parsed.settings || {}),
+      settings: st,
       days: parsed.days || {},
       und: parsed.und || {},
       reps: parsed.reps || {},
@@ -1195,22 +1201,40 @@ function renderCalendar() {
 const FIVE = ['国語', '数学', '英語', '理科', '社会'];
 const FOUR = ['音楽', '美術', '保健体育', '技術・家庭'];
 
+/* 過去平均（配列の平均を教科ごとに出す） */
+function avgOf(rows) {
+  const a = { jp: 0, ma: 0, en: 0 };
+  rows.forEach(r => SELF_MADE.forEach(k => a[k] += r[k]));
+  SELF_MADE.forEach(k => a[k] = a[k] / rows.length);
+  a.total = a.jp + a.ma + a.en;
+  return a;
+}
+const PAST_AVG = avgOf(PAST_SCORES);           /* 過去8年の平均 */
+const round1 = v => Math.round(v * 10) / 10;
+
 function calcNeed() {
   const n = state.naishin;
+  const g = state.settings.goals;
   const five = n.five.reduce((a, b) => a + Number(b || 0), 0);
   const four = n.four.reduce((a, b) => a + Number(b || 0), 0);
-  const kansan = five + four * 2;                       /* 65点満点 */
-  const report = kansan / 65 * 300;                     /* 調査書点 300 */
+  const kansan = five + four * 2;                   /* 換算内申 65点満点 */
+  const report = kansan / 65 * 300;                 /* 調査書点 300点 */
   const esat = ESAT_SCORES[n.esat] != null ? ESAT_SCORES[n.esat] : 20;
-  const target = Number(state.settings.targetTotal) || 0;
-  const needAcademic = target - report - esat;          /* 700点満点での必要点 */
-  const needRaw = needAcademic / 700 * 500;             /* 5教科素点（500点満点） */
+
+  const self = SELF_MADE.reduce((a, k) => a + (Number(g[k]) || 0), 0);   /* 国数英（300点満点） */
+  const comm = COMMON.reduce((a, k) => a + (Number(g[k]) || 0), 0);      /* 理社（200点満点） */
+  const raw = self + comm;                          /* 5科素点 500点満点 */
+  const academic = raw / 500 * 700;                 /* 学力検査点 700点満点 */
+  const total = academic + report + esat;           /* 総合 1020点満点 */
+
   return {
-    five, four, kansan, esat, target,
-    report: Math.round(report * 10) / 10,
-    academic: Math.round(needAcademic * 10) / 10,
-    total: Math.max(0, Math.round(needRaw)),
-    perSubject: Math.max(0, Math.round(needRaw / 5)),
+    five, four, kansan, esat,
+    report: round1(report),
+    self, comm, raw,
+    academic: round1(academic),
+    total: round1(total),
+    pastAvg: round1(PAST_AVG.total),
+    gap: round1(self - PAST_AVG.total),             /* 過去平均との差 */
   };
 }
 
@@ -1241,43 +1265,218 @@ function renderCalc() {
   esatSel.value = n.esat;
   esatSel.onchange = () => { n.esat = esatSel.value; save(true); drawCalcResult(); };
 
-  const tt = document.getElementById('target-total');
-  tt.value = state.settings.targetTotal;
-  tt.oninput = () => { state.settings.targetTotal = Number(tt.value) || 0; save(true); drawCalcResult(); };
+  renderGoalPresets();
+  renderGoalGrid();
   drawCalcResult();
+  renderPastChart();
+  renderPastTable();
+}
+
+/* ---- 目標のプリセット（自校作成3科） ---- */
+function renderGoalPresets() {
+  const host = document.getElementById('goal-presets');
+  host.innerHTML = '';
+  GOAL_PRESETS.forEach(p => {
+    const rows = p.pick(PAST_SCORES);
+    const a = avgOf(rows);
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'preset' + (state.settings.goalPreset === p.id ? ' active' : '');
+    b.innerHTML = `<span class="pr-label">${p.label}</span>
+      <span class="pr-score">${Math.round(a.total)}<small>点</small></span>
+      <span class="pr-note">${p.note}</span>`;
+    b.onclick = () => {
+      SELF_MADE.forEach(k => state.settings.goals[k] = Math.round(a[k]));
+      state.settings.goalPreset = p.id;
+      save(true);
+      renderGoalPresets(); renderGoalGrid(); drawCalcResult(); renderPastChart();
+    };
+    host.appendChild(b);
+  });
+}
+
+/* ---- 5教科の目標点 ---- */
+function renderGoalGrid() {
+  const host = document.getElementById('goal-grid');
+  host.innerHTML = '';
+  EXAM_SUBJECTS.forEach(s => {
+    const self = SELF_MADE.indexOf(s.key) >= 0;
+    const cell = document.createElement('div');
+    cell.className = 'goal-cell' + (self ? ' self' : ' common');
+    cell.innerHTML = `<label for="goal-${s.key}">
+        <i style="background:${subjColor(s.slot)}"></i>${s.name}
+        <span class="goal-tag">${self ? '自校作成' : '共通'}</span>
+      </label>
+      <span class="goal-ref">${self
+        ? `過去平均 ${round1(PAST_AVG[s.key])}`
+        : '9割を狙う'}</span>`;
+    const inp = document.createElement('input');
+    inp.type = 'number'; inp.id = 'goal-' + s.key;
+    inp.min = '0'; inp.max = '100'; inp.step = '1';
+    inp.value = state.settings.goals[s.key];
+    inp.oninput = () => {
+      const v = Math.max(0, Math.min(100, Number(inp.value) || 0));
+      state.settings.goals[s.key] = v;
+      state.settings.goalPreset = '';       /* 手で変えたらプリセットの選択を外す */
+      save(true);
+      renderGoalPresets(); drawCalcResult(); renderPastChart();
+    };
+    cell.insertBefore(inp, cell.querySelector('.goal-ref'));
+    host.appendChild(cell);
+  });
 }
 
 function drawCalcResult() {
   const r = calcNeed();
-  const over = r.total > 500;
+  const g = state.settings.goals;
+  const ok = r.gap >= 0;
+  /* 3科が過去平均を下回るとき、理社でどれだけ補えばよいか（700点換算での不足分を素点に戻す） */
+  const needComm = Math.max(0, PAST_AVG.total - r.self);
+
   document.getElementById('calc-result').innerHTML = `
-    <div class="res-box">
-      <div class="res-line"><span>5教科の評定合計</span><b>${r.five} / 25</b></div>
-      <div class="res-line"><span>実技4教科の評定合計 ×2</span><b>${r.four * 2} / 40</b></div>
-      <div class="res-line"><span>換算内申</span><b>${r.kansan} / 65</b></div>
-      <div class="res-line res-big"><span>調査書点（300点満点）</span><b>${r.report}</b></div>
-    </div>
-    <div class="res-box">
-      <div class="res-line"><span>目標とする総合得点</span><b>${r.target} / 1020</b></div>
-      <div class="res-line"><span>調査書点</span><b>− ${r.report}</b></div>
-      <div class="res-line"><span>ESAT-J（${state.naishin.esat}）</span><b>− ${r.esat}</b></div>
-      <div class="res-line res-big"><span>当日の学力検査で必要な点（700点満点）</span><b>${Math.max(0, r.academic)}</b></div>
-    </div>
-    <div class="res-box">
-      <div class="res-line res-big"><span>5教科の素点で必要な合計</span><b>${r.total} / 500</b></div>
-      <div class="res-note">${over
-        ? '⚠️ 現在の内申では、この目標総合得点は当日満点でも届きません。内申を上げるか、目標を見直してください。'
-        : `1教科あたりの平均 <b>${r.perSubject}点</b>。自校作成の国数英は平均点が下がるので、共通問題の<b>理科・社会で90点前後</b>を取り、その分を国数英に振り分けるのが現実的な組み立てです。`}</div>
-      <div class="need-list">
-        ${[['国語', -8], ['数学', -8], ['英語', -8], ['理科', 12], ['社会', 12]].map(([nm, adj]) => {
-          const v = Math.max(0, Math.min(100, r.perSubject + adj));
-          return `<div class="need-cell"><div class="s">${nm}</div><div class="p">${v}</div></div>`;
+    <div class="res-cols">
+      <div class="res-box">
+        <div class="res-hd">自校作成の3科（国・数・英）</div>
+        ${SELF_MADE.map(k => {
+          const s = subjMeta(k), d = round1(g[k] - PAST_AVG[k]);
+          return `<div class="res-line"><span><i class="dot" style="background:${subjColor(s.slot)}"></i>${s.name}</span>
+            <b>${g[k]}<span class="res-sub">（平均 ${round1(PAST_AVG[k])} / ${d >= 0 ? '+' : ''}${d}）</span></b></div>`;
         }).join('')}
+        <div class="res-line res-big"><span>3科の合計</span><b>${r.self} / 300</b></div>
+        <div class="verdict ${ok ? 'ok' : 'ng'}">
+          ${ok
+            ? `過去8年の平均 <b>${r.pastAvg}点</b> を <b>+${r.gap}点</b> 上回っています。この水準を確保できれば合格と判断できます。`
+            : `過去8年の平均 <b>${r.pastAvg}点</b> に <b>${-r.gap}点</b> 足りません。3科をここまで上げるか、理科・社会で取り返す必要があります。`}
+        </div>
       </div>
-      <div class="res-note" style="font-size:12px;color:var(--ink-muted)">
-        上は「理社で稼ぐ」前提の配分例です（理社 +12点、国数英 −8点）。自分の得意・不得意に合わせて読み替えてください。
+
+      <div class="res-box">
+        <div class="res-hd">共通問題の2科（理・社）</div>
+        ${COMMON.map(k => {
+          const s = subjMeta(k);
+          return `<div class="res-line"><span><i class="dot" style="background:${subjColor(s.slot)}"></i>${s.name}</span><b>${g[k]}</b></div>`;
+        }).join('')}
+        <div class="res-line res-big"><span>2科の合計</span><b>${r.comm} / 200</b></div>
+        <div class="res-note">
+          共通問題は自校作成と違って<b>9割が現実的に狙える</b>ので、夏はここを最優先で固めます。
+          ${needComm <= 0
+            ? '3科が平均以上なので、理社は目標どおり取れれば十分です。'
+            : r.comm + needComm <= 200
+              ? `いまの3科の目標だと過去平均に ${round1(needComm)}点 届かないため、理社で <b>${Math.ceil(r.comm + needComm)}点</b>（+${Math.ceil(needComm)}点）まで積み上げると総合で並べます。`
+              : `⚠️ いまの3科の目標だと過去平均に ${round1(needComm)}点 届かず、<b>理社を満点（200点）にしても取り返せません。</b>3科の目標そのものを上げる必要があります。`}
+        </div>
+      </div>
+    </div>
+
+    <div class="res-box">
+      <div class="res-hd">総合得点（1020点満点）</div>
+      <div class="res-line"><span>5科の素点</span><b>${r.raw} / 500</b></div>
+      <div class="res-line"><span>学力検査点（素点 ÷ 500 × 700）</span><b>${r.academic} / 700</b></div>
+      <div class="res-line"><span>調査書点（換算内申 ${r.kansan}/65 ÷ 65 × 300）</span><b>${r.report} / 300</b></div>
+      <div class="res-line"><span>ESAT-J（${state.naishin.esat}）</span><b>${r.esat} / 20</b></div>
+      <div class="res-line res-big"><span>総合得点</span><b>${r.total} / 1020</b></div>
+      <div class="res-meter">
+        <div class="rm-bar"><i style="width:${Math.min(100, r.total / 1020 * 100)}%"></i></div>
+        <span>${Math.round(r.total / 1020 * 100)}%</span>
+      </div>
+      <div class="res-note">
+        内申の内訳：5教科 ${r.five}/25 ＋ 実技4教科 ${r.four}×2 = ${r.four * 2}/40 → 換算内申 <b>${r.kansan}/65</b>。
+        実技4教科は2倍なので、<b>評定を1上げると調査書点が約9.2点</b>（＝当日の学力検査 約6.6点分）動きます。
       </div>
     </div>`;
+}
+
+/* ---- 過去の平均点：積み上げ棒グラフ ---- */
+function renderPastChart() {
+  const host = document.getElementById('chart-past');
+  if (!host) return;
+  host.innerHTML = '';
+  document.getElementById('past-legend').innerHTML = SELF_MADE.map(k => {
+    const s = subjMeta(k);
+    return `<span class="lv-key"><i class="lv-sw" style="background:${subjColor(s.slot)};border-color:transparent"></i>${s.name}</span>`;
+  }).join('') + `<span class="lv-key"><i class="lv-sw dashed"></i>いまの目標</span>`;
+
+  const rows = PAST_SCORES;
+  const goal = SELF_MADE.reduce((a, k) => a + (Number(state.settings.goals[k]) || 0), 0);
+  const W = Math.max(host.clientWidth || 620, Math.min(rows.length * 62 + 60, 900));
+  const H = 260, mL = 34, mR = 12, mT = 14, mB = 34;
+  const iw = W - mL - mR, ih = H - mT - mB;
+  const maxV = 300;
+  const step = iw / rows.length;
+  const bw = Math.min(38, step - 12);
+  const y = v => mT + ih - (v / maxV) * ih;
+
+  const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: 'img', 'aria-label': '自校作成3科の過去の平均点' });
+  for (let v = 0; v <= maxV; v += 50) {
+    svg.appendChild(el('line', { x1: mL, x2: W - mR, y1: y(v), y2: y(v), stroke: 'var(--grid)', 'stroke-width': 1 }));
+    svg.appendChild(el('text', { x: mL - 6, y: y(v) + 4, 'text-anchor': 'end', fill: 'var(--ink-muted)', 'font-size': 10 }, v));
+  }
+
+  rows.forEach((r, i) => {
+    const x = mL + i * step + (step - bw) / 2;
+    let acc = 0;
+    SELF_MADE.forEach((k, si) => {
+      const s = subjMeta(k);
+      const y0 = y(acc + r[k]), y1 = y(acc);
+      const h = Math.max(1, y1 - y0 - (si === 0 ? 0 : 2));   /* セグメント間に2pxの隙間 */
+      svg.appendChild(si === SELF_MADE.length - 1
+        ? el('path', { d: topRoundPath(x, y0, bw, h, 4), fill: subjColor(s.slot) })
+        : el('rect', { x, y: y0, width: bw, height: h, fill: subjColor(s.slot) }));
+      acc += r[k];
+    });
+    svg.appendChild(el('text', {
+      x: x + bw / 2, y: y(acc) - 6, 'text-anchor': 'middle',
+      fill: 'var(--ink-2)', 'font-size': 10.5, 'font-weight': 700,
+    }, round1(acc)));
+    svg.appendChild(el('text', {
+      x: x + bw / 2, y: H - 12, 'text-anchor': 'middle', fill: 'var(--ink-muted)', 'font-size': 10,
+    }, r.year));
+
+    const hit = el('rect', { x: mL + i * step, y: mT, width: step, height: ih, fill: 'transparent' });
+    hit.addEventListener('mousemove', ev => showTip(
+      `<b>${r.year}年</b>` +
+      SELF_MADE.map(k => tipRow(cssVar(`--series-${subjMeta(k).slot}`), subjMeta(k).name, r[k] + '点')).join('') +
+      `<div class="r" style="border-top:1px solid var(--grid);margin-top:4px;padding-top:4px">3科合計<span>${round1(sum3(r))}点</span></div>`, ev));
+    hit.addEventListener('mouseleave', hideTip);
+    svg.appendChild(hit);
+  });
+
+  /* いまの目標ライン */
+  svg.appendChild(el('line', {
+    x1: mL, x2: W - mR, y1: y(goal), y2: y(goal),
+    stroke: 'var(--ink)', 'stroke-width': 2, 'stroke-dasharray': '6 4',
+  }));
+  svg.appendChild(el('text', {
+    x: W - mR, y: y(goal) - 6, 'text-anchor': 'end', fill: 'var(--ink)', 'font-size': 11, 'font-weight': 700,
+  }, `目標 ${goal}点`));
+
+  svg.appendChild(el('line', { x1: mL, x2: W - mR, y1: y(0), y2: y(0), stroke: 'var(--axis)', 'stroke-width': 1 }));
+  host.appendChild(svg);
+}
+
+function renderPastTable() {
+  const tbl = document.getElementById('past-table');
+  if (!tbl) return;
+  const goal = SELF_MADE.reduce((a, k) => a + (Number(state.settings.goals[k]) || 0), 0);
+  tbl.innerHTML = `
+    <thead><tr><th>年度</th>${SELF_MADE.map(k => `<th class="num">${subjMeta(k).name}</th>`).join('')}
+      <th class="num">3科合計</th><th class="num">目標との差</th></tr></thead>
+    <tbody>
+      ${PAST_SCORES.slice().reverse().map(r => {
+        const t = round1(sum3(r)), d = round1(goal - t);
+        return `<tr><td>${r.year}年</td>${SELF_MADE.map(k => `<td class="num">${r[k]}</td>`).join('')}
+          <td class="num"><b>${t}</b></td>
+          <td class="num">${d >= 0
+            ? `<span style="color:var(--good-text)">目標が +${d}</span>`
+            : `<span style="color:var(--critical)">目標が ${d}</span>`}</td></tr>`;
+      }).join('')}
+      <tr class="tr-avg"><td>8年平均</td>
+        ${SELF_MADE.map(k => `<td class="num">${round1(PAST_AVG[k])}</td>`).join('')}
+        <td class="num"><b>${round1(PAST_AVG.total)}</b></td>
+        <td class="num">${(() => { const d = round1(goal - PAST_AVG.total);
+          return d >= 0 ? `<span style="color:var(--good-text)">目標が +${d}</span>`
+                        : `<span style="color:var(--critical)">目標が ${d}</span>`; })()}</td></tr>
+    </tbody>`;
 }
 
 /* =========================================================
@@ -1381,6 +1580,7 @@ function switchView(name) {
   if (name === 'today') renderToday();
   if (name === 'fields') renderFieldProgress();
   if (name === 'plan') renderPlan();
+  if (name === 'calc') { renderPastChart(); renderPastTable(); }
 }
 
 function renderAll() {
@@ -1421,7 +1621,8 @@ function init() {
   window.addEventListener('resize', () => {
     clearTimeout(rt);
     rt = setTimeout(() => {
-      renderUnderstandChart(); renderSpeedChart(); renderDailyChart(); renderSubjectChart();
+      renderUnderstandChart(); renderSpeedChart(); renderDailyChart();
+      renderSubjectChart(); renderPastChart();
     }, 160);
   });
 }

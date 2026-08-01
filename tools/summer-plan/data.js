@@ -207,3 +207,39 @@ const PHASES = [
 
 /* ESAT-J（英語スピーキングテスト）の得点換算 */
 const ESAT_SCORES = { A: 20, B: 16, C: 12, D: 8, E: 4, F: 0 };
+
+/* -----------------------------------------------------
+   自校作成3科（国語・数学・英語）の過去の平均点。
+   この水準を確保できれば合格と判断してよい、という基準。
+   ※ 理科・社会は都立共通問題なのでここには含めない。
+   ----------------------------------------------------- */
+const PAST_SCORES = [
+  { year: 2018, jp: 51.9, ma: 56.8, en: 61.4 },
+  { year: 2019, jp: 58.9, ma: 39.1, en: 60.8 },
+  { year: 2020, jp: 57.1, ma: 56.8, en: 66.7 },
+  { year: 2021, jp: 56.3, ma: 45.5, en: 39.5 },
+  { year: 2022, jp: 64.3, ma: 47.8, en: 53.3 },
+  { year: 2023, jp: 50.9, ma: 55.0, en: 51.7 },
+  { year: 2024, jp: 64.1, ma: 55.7, en: 55.8 },
+  { year: 2025, jp: 42.1, ma: 66.4, en: 55.1 },
+];
+const SELF_MADE = ['jp', 'ma', 'en'];   /* 自校作成の3科 */
+const COMMON    = ['sc', 'so'];         /* 都立共通問題の2科 */
+/* 入試の5教科（国・数・英・理・社の順） */
+const EXAM_SUBJECTS = SELF_MADE.concat(COMMON).map(k => SUBJECTS.find(s => s.key === k));
+
+/* 共通問題（理科・社会）の目標。自校作成と違い9割を狙えるので既定は90点 */
+const COMMON_GOAL_DEFAULT = 90;
+
+/* 目標のプリセット（自校作成3科） */
+const GOAL_PRESETS = [
+  { id: 'avg8',  label: '過去8年の平均',   note: '標準的な目標。ここを確保できれば合格の水準',
+    pick: rows => rows },
+  { id: 'avg3',  label: '直近3年の平均',   note: '最近の傾向に合わせる',
+    pick: rows => rows.slice(-3) },
+  { id: 'best',  label: '安全圏（最高の年）', note: '平均点が高かった年でも通用する得点',
+    pick: rows => [rows.reduce((a, b) => sum3(b) > sum3(a) ? b : a)] },
+  { id: 'worst', label: '最低ライン（最低の年）', note: '難しい年の水準。ここを下回ると厳しい',
+    pick: rows => [rows.reduce((a, b) => sum3(b) < sum3(a) ? b : a)] },
+];
+const sum3 = r => r.jp + r.ma + r.en;

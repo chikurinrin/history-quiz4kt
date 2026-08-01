@@ -485,6 +485,7 @@ textarea { resize: vertical; }
 .tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 560px; }
 .tbl th, .tbl td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); }
 .tbl th { color: var(--ink-2); font-weight: 600; font-size: 12.5px; white-space: nowrap; }
+.tbl th.num, .tbl td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 /* ---------------- 逆算 ---------------- */
 .calc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; }
@@ -492,6 +493,42 @@ textarea { resize: vertical; }
 .naishin { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; margin-bottom: 12px; }
 .naishin .n-cell label { font-size: 12.5px; color: var(--ink-2); display: block; }
 .naishin .n-cell.x2 label::after { content: " ×2"; color: var(--series-2); font-weight: 700; }
+/* 目標点のプリセット */
+.preset-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-bottom: 14px; }
+.preset {
+  appearance: none; font: inherit; text-align: left; cursor: pointer;
+  border: 1px solid var(--axis); border-radius: 10px; background: var(--surface);
+  padding: 9px 11px; color: var(--ink-2); display: block;
+}
+.preset:hover { border-color: var(--accent); }
+.preset.active { border-color: var(--accent); background: var(--accent-soft); }
+.pr-label { display: block; font-size: 12.5px; font-weight: 700; color: var(--ink); }
+.pr-score { display: block; font-size: 22px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; line-height: 1.2; }
+.pr-score small { font-size: 12px; margin-left: 2px; }
+.pr-note { display: block; font-size: 11px; color: var(--ink-muted); line-height: 1.4; }
+
+/* 5教科の目標点 */
+.goal-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 10px; }
+.goal-cell { border: 1px solid var(--border); border-radius: 10px; padding: 9px 11px; background: var(--surface-2); }
+.goal-cell.self { border-left: 3px solid var(--series-2); }
+.goal-cell.common { border-left: 3px solid var(--good); }
+.goal-cell label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink); margin-bottom: 5px; flex-wrap: wrap; }
+.goal-tag { font-size: 10px; color: var(--ink-muted); border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; }
+.goal-ref { display: block; font-size: 11px; color: var(--ink-muted); margin-top: 4px; }
+
+.res-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.res-hd { font-size: 13px; font-weight: 700; color: var(--ink); margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+.res-sub { font-size: 11px; color: var(--ink-muted); font-weight: 400; margin-left: 4px; }
+.res-line span .dot { margin-right: 6px; vertical-align: 1px; }
+.verdict { margin-top: 10px; border-radius: 8px; padding: 9px 12px; font-size: 13px; line-height: 1.6; }
+.verdict.ok { background: var(--surface); border: 1px solid var(--good); color: var(--ink); }
+.verdict.ng { background: var(--surface); border: 1px solid var(--critical); color: var(--ink); }
+.res-meter { display: flex; align-items: center; gap: 10px; margin-top: 10px; font-size: 12.5px; color: var(--ink-2); }
+.rm-bar { flex: 1; height: 8px; border-radius: 4px; background: var(--surface); overflow: hidden; border: 1px solid var(--border); }
+.rm-bar > i { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+.lv-sw.dashed { background: repeating-linear-gradient(90deg, var(--ink) 0 4px, transparent 4px 7px); border-color: transparent; }
+.tr-avg td { border-top: 2px solid var(--axis); font-weight: 700; background: var(--surface-2); }
+
 .res-box { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; background: var(--surface-2); margin-bottom: 12px; }
 .res-line { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; font-size: 13.5px; }
 .res-line b { font-variant-numeric: tabular-nums; }

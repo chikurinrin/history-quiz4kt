@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-title" content="夏の進捗">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-<link rel="stylesheet" href="style.css?v=8">
+<link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
 
@@ -32,7 +32,7 @@
     <button class="tab" data-view="dash">ダッシュボード</button>
     <button class="tab" data-view="fields">分野の進捗</button>
     <button class="tab" data-view="plan">夏の工程表</button>
-    <button class="tab" data-view="calc">合格ライン逆算</button>
+    <button class="tab" data-view="calc">合格ライン</button>
     <button class="tab" data-view="guide">攻略ガイド</button>
     <button class="tab" data-view="settings">設定</button>
   </nav>
@@ -215,8 +215,11 @@
   <section class="view" id="view-calc">
     <div class="card">
       <div class="card-hd">
-        <h2>合格ライン逆算シミュレータ</h2>
-        <p class="card-sub">都立の一般入試は <b>学力検査 700点 ＋ 調査書 300点 ＋ ESAT-J 20点 ＝ 1020点満点</b>。内申から、当日必要な点数を逆算します。最初に一度だけ入れておけば十分です。</p>
+        <h2>合格ラインの計算</h2>
+        <p class="card-sub">
+          都立の一般入試は <b>学力検査 700点 ＋ 調査書 300点 ＋ ESAT-J 20点 ＝ 1020点満点</b>。
+          国・数・英は自校作成問題なので、<b>過去の平均点</b>を基準に目標を決めます。内申は最初に一度だけ入れておけば十分です。
+        </p>
       </div>
 
       <div class="calc-grid">
@@ -228,16 +231,32 @@
           <div class="fld"><label for="esat">ESAT-J の想定グレード</label>
             <select id="esat"><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option></select>
           </div>
-          <div class="fld"><label for="target-total">目標とする総合得点（1020点満点）</label>
-            <input type="number" id="target-total" min="0" max="1020" step="1">
-          </div>
         </div>
         <div class="calc-col">
-          <h3 class="sec-title">計算結果</h3>
-          <div id="calc-result"></div>
+          <h3 class="sec-title">当日の目標点</h3>
+          <p class="hint">
+            <b>国語・数学・英語は自校作成問題</b>で平均点が低く、年ごとの振れも大きい教科です。
+            過去の平均点から目標を選んでください。<b>理科・社会は都立共通問題</b>なので、9割を狙います。
+          </p>
+          <div class="preset-row" id="goal-presets"></div>
+          <div class="goal-grid" id="goal-grid"></div>
         </div>
       </div>
-      <p class="disclaimer">※ ボーダーラインは年度・倍率によって動きます。ここでの目標点はあくまで目安です。必ず学校説明会や最新の入試要項、模試の判定資料で確認してください。</p>
+
+      <div id="calc-result"></div>
+      <p class="disclaimer">※ 合否は年度・倍率で動きます。ここでの数字は過去の平均点をもとにした目安です。必ず学校説明会や最新の入試要項、模試の判定資料で確認してください。</p>
+    </div>
+
+    <div class="card viz-root">
+      <div class="card-hd">
+        <h2>自校作成3科の過去の平均点</h2>
+        <p class="card-sub">国・数・英の合計（300点満点）。破線が今の目標です。年によって40点近く動きます。</p>
+      </div>
+      <div id="chart-past" class="chart"></div>
+      <div class="level-legend" id="past-legend"></div>
+      <div class="table-scroll">
+        <table class="tbl static" id="past-table"></table>
+      </div>
     </div>
   </section>
 
@@ -378,8 +397,8 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="data.js?v=8"></script>
-<script src="script.js?v=8"></script>
+<script src="data.js?v=9"></script>
+<script src="script.js?v=9"></script>
 <script>
   // Service Worker（http/https のときだけ。file:// では登録できない）
   if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
