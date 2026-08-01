@@ -315,8 +315,14 @@ body {
 .fp-row.lv0 .fp-title { color: var(--critical); }
 .fp-row.lv3 .fp-title { color: var(--good-text); }
 .fp-name { min-width: 0; }
-.fp-title { display: block; font-size: 14px; line-height: 1.45; }
-.fp-log { display: block; font-size: 11.5px; color: var(--ink-muted); }
+.fp-title {
+  display: block; font-size: 14px; line-height: 1.45;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.fp-log {
+  display: block; font-size: 11.5px; color: var(--ink-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .fp-log.none { opacity: .7; }
 
 .fp-levels { display: flex; gap: 4px; }
@@ -508,13 +514,29 @@ textarea { resize: vertical; }
 }
 .toast.on { opacity: 1; transform: translate(-50%, 0); }
 
+/* スマホの縦画面：分野1件を必ず1行に収める
+   （分野名は伸縮＋末尾を…で省略、ログと教材名ラベルは落とす） */
 @media (max-width: 860px) {
-  .fp-row { grid-template-columns: 1fr; gap: 8px; border-bottom: 1px solid var(--border); border-radius: 0; }
-  .fp-reps { width: 100%; }
+  .fp-row {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 6px; padding: 7px 2px;
+    border-bottom: 1px solid var(--border); border-radius: 0;
+  }
+  .fp-log { display: none; }
+  .fp-title { font-size: 12.5px; }
+  .lv-btn { width: 29px; height: 34px; font-size: 14px; }
+  .fp-levels { gap: 3px; }
+  .rep { padding: 0; gap: 0; border: none; background: none; }
+  .rep.on { background: none; }
+  .rep-name { display: none; }
+  .stepper { gap: 1px; }
+  .st-btn { width: 28px; height: 34px; font-size: 14px; }
+  .st-val { min-width: 24px; font-size: 12px; }
+  .rep.on .st-val { color: var(--accent); }
 }
 @media (max-width: 640px) {
-  .wrap { padding: 16px 12px calc(60px + env(safe-area-inset-bottom)); }
-  #banner-wrap { padding: 12px 12px 0; }
+  .wrap { padding: 16px 10px calc(60px + env(safe-area-inset-bottom)); }
+  #banner-wrap { padding: 12px 10px 0; }
   .card { padding: 15px; }
   .hd-inner { padding-bottom: 10px; }
   .hd-title h1 { font-size: 18px; }
@@ -528,8 +550,9 @@ textarea { resize: vertical; }
   .speed-inputs label { flex: 1 1 120px; }
   .fgrid { grid-template-columns: minmax(110px, 1.2fr) repeat(var(--cols), 54px); }
   .chk-badge { align-self: flex-start; }
-  .lv-btn { width: 52px; height: 40px; }
   .level-legend .lv-key small { display: none; }
+  /* 分野の一覧は幅を稼ぐためカードの余白を詰める */
+  #view-fields .card { padding: 12px 7px; }
   /* 教科の進捗行：ラベルを落として1行に詰める */
   .unit-progress { gap: 7px; font-size: 12px; }
   .up-lbl { display: none; }

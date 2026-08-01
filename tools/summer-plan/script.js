@@ -917,7 +917,7 @@ function fieldProgressRow(f, counts) {
   const logs = MATERIALS.map(m => ({ m, n: counts[`${f.id}-${m.key}`] || 0 })).filter(x => x.n > 0);
   const name = document.createElement('div');
   name.className = 'fp-name';
-  name.innerHTML = `<span class="fp-title">${escapeHtml(f.name)}</span>` +
+  name.innerHTML = `<span class="fp-title" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</span>` +
     (logs.length
       ? `<span class="fp-log">${logs.map(x => `${x.m.name} ${x.n}日`).join('・')}</span>`
       : `<span class="fp-log none">まだ記録なし</span>`);
@@ -1116,7 +1116,7 @@ function renderStats() {
 
     <div class="stat"><div class="k">繰り返し回数</div>
       <div class="v">${totalReps()}<small>周</small></div>
-      <div class="m">必勝セレクト＋過去問の合計</div></div>
+      <div class="m">問題集をまわした回数の合計</div></div>
 
     <div class="stat"><div class="k">累計学習時間</div>
       <div class="v">${th.toFixed(1)}<small>時間</small></div>
