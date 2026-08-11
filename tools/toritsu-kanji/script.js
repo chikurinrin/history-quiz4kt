@@ -19,7 +19,7 @@
   var MASTER_HITS = 2;                         // 連続正解でマスター扱いにする回数
   var QUESTIONS_PER_SESSION = 50;
   var GROUP_SIZE = 50;                          // 1グループの語数（頻出度順に分割）
-  var LEVELS = ['4級', '3級', '準2級', '2級', '準1級', '四字熟語'];
+  var LEVELS = ['4級', '3級', '準2級', '2級', '準1級', '四字熟語', '語彙'];
 
   // ---- 一意なIDを語＋読みから生成（追加問題と重複しない安定キー） ----
   function makeId(q) {
@@ -27,7 +27,7 @@
   }
   // 習熟度は「読み／書き」で別々に記録する。記録キー＝ id + '|r'（読み）/ '|w'（書き）
   function keyOf(id, mode) {
-    return id + '|' + (mode === 'writing' ? 'w' : 'r');
+    return id + '|' + (mode === 'writing' ? 'w' : mode === 'meaning' ? 'm' : 'r');
   }
 
   // ---- データ読み込み（組み込み＋ユーザー追加） ----
@@ -246,17 +246,33 @@
   function filteredPool() {
     var useGroups = anyGroupChecked();
     return allQuestions.filter(function (q) {
-      var key = keyOf(q.id, settings.mode);
-      if (useGroups) {
-        // グループを選んでいるときは、その範囲を出題対象にする（レベル選択より優先）
-        if (!isGroupChecked(q.level, q._gi)) return false;
-      } else if (settings.level !== 'all' && q.level !== settings.level) {
-        return false;
+      var isVocab = !!q.vocabOnly;               // カタカナ・ひらがなの語彙（読みが無い）
+      // 提示モード（カタカナ語彙はどのモードでも「意味問題」として扱う）
+      var pm = isVocab ? 'meaning' : settings.mode;
+      var key = keyOf(q.id, pm);
+
+      // モード別の出題可否
+      if (settings.mode === 'meaning') {
+        if (!q.meaning) return false;                 // 意味モードは語義を持つ語彙のみ
+      } else if (settings.mode === 'writing') {
+        if (isVocab) return false;                    // カタカナ・ひらがなは書けない
+        if (q.noWrite) return false;                  // 語彙集の常用外語は書き対象外
+        if (q.level === '準1級' && settings.level !== '準1級') return false; // 準1級は読み専用
       }
-      if (settings.cat !== 'all' && q.cat !== settings.cat) return false;
-      // 西高の書き取りは常用漢字のみ。準1級（表外字）は読み専用にする
-      // （レベルで準1級を明示選択したときだけ書きでも出す）
-      if (settings.mode === 'writing' && q.level === '準1級' && settings.level !== '準1級') return false;
+
+      // レベル/グループ/カテゴリの絞り込み
+      //  ・意味モードは語彙横断（絞り込みなし）
+      //  ・カタカナ語彙は読み/自動再生の流れに常に混ぜる（レベル・グループの絞り込みを受けない）
+      if (settings.mode !== 'meaning') {
+        if (!isVocab) {
+          if (useGroups) {
+            if (!isGroupChecked(q.level, q._gi)) return false;
+          } else if (settings.level !== 'all' && q.level !== settings.level) {
+            return false;
+          }
+        }
+        if (settings.cat !== 'all' && q.cat !== settings.cat) return false;
+      }
       if (settings.pool === 'weak' && !needsReview(key)) return false;     // 苦手＋不安
       if (settings.pool === 'weakonly' && !isWeak(key)) return false;      // 苦手だけ
       if (settings.pool === 'unseen' && history[key]) return false;
@@ -323,11 +339,18 @@
     session.graded = false;
     var q = session.current;
 
-    el.qLevel.textContent = q.level === '四字熟語' ? '四字熟語' : '漢検 ' + q.level;
-    el.qMode.textContent = settings.mode === 'reading' ? '読み' : '書き';
+    // カタカナ・ひらがな語彙は読みが無いので、どのモードでも「意味問題」として提示する
+    var pm = q.vocabOnly ? 'meaning' : settings.mode;
+    session.presentMode = pm;
+
+    el.qLevel.textContent = (q.level === '四字熟語' || q.level === '語彙') ? q.level : '漢検 ' + q.level;
+    el.qMode.textContent = pm === 'reading' ? '読み' : pm === 'writing' ? '書き' : '意味';
     el.qProgress.textContent = (session.index + 1) + ' / ' + session.queue.length;
 
-    if (settings.mode === 'reading') {
+    if (pm === 'meaning') {
+      el.qPrompt.textContent = '次の語の意味を答えなさい。';
+      el.qSentence.innerHTML = renderVocabPrompt(q);
+    } else if (pm === 'reading') {
       el.qPrompt.textContent = '次の傍線部の読みをひらがなで答えなさい。';
       el.qSentence.innerHTML = renderSentence(q, 'reading');
     } else {
@@ -356,6 +379,15 @@
       replacement = '<span class="blank">〔　　〕</span>';
     }
     return escapeHtml(q.sentence).replace(/\{[^}]*\}/, replacement);
+  }
+
+  // 意味モードの出題表示：語を大きく見せ、用例（対象語は伏せる）を添える
+  function renderVocabPrompt(q) {
+    var readingLabel = q.reading ? '<span class="vocab-reading">（' + escapeHtml(q.reading) + '）</span>' : '';
+    var head = '<div class="vocab-head"><span class="vocab-word">' + escapeHtml(q.word) + '</span>' + readingLabel + '</div>';
+    // 用例は対象語を空欄にして「意味から語を思い出す」練習にする
+    var ex = q.sentence ? '<div class="vocab-ex">用例：' + escapeHtml(q.sentence).replace(/\{[^}]*\}/, '<span class="blank">〔　　〕</span>') + '</div>' : '';
+    return head + ex;
   }
 
   // 対象語の各漢字の音読み・訓読みを参考表示（辞書にある字のみ）
@@ -390,16 +422,26 @@
     if (session.graded) return;
     var q = session.current;
     el.revealWord.textContent = q.word;
-    el.revealReading.textContent = '（' + q.reading + '）';
+    el.revealReading.textContent = q.reading ? '（' + q.reading + '）' : '';
     el.revealHint.textContent = q.hint || '';
 
-    // 語（熟語）の意味を表示（辞書にあれば）
-    var meaning = (window.WORD_MEANINGS || {})[q.word];
+    // 語の意味を表示（エントリの meaning を優先、なければ意味辞書）
+    var meaning = q.meaning || (window.WORD_MEANINGS || {})[q.word];
     if (meaning) {
       el.wordMeaning.textContent = meaning;
       el.wordMeaning.classList.remove('hidden');
     } else {
       el.wordMeaning.classList.add('hidden');
+    }
+    // 類語（語彙集の語）
+    var synEl = $('wordSynonym');
+    if (synEl) {
+      if (q.synonym) {
+        synEl.textContent = '類語：' + q.synonym;
+        synEl.classList.remove('hidden');
+      } else {
+        synEl.classList.add('hidden');
+      }
     }
     renderKanjiRefs(q.word);
 
@@ -444,7 +486,7 @@
   }
 
   function grade(result) {
-    recordResult(session.current, settings.mode, result);
+    recordResult(session.current, session.presentMode || settings.mode, result);
     session.graded = true;
     updateDashboard();
     nextQuestion();
@@ -576,8 +618,8 @@
   // 音声読み上げ（Web Speech API）
   // =====================================================
   function readingText(q) {
-    // 例文の対象語を読みに置き換えた自然な文を読み上げる
-    return q.sentence.replace(/\{[^}]*\}/, q.reading);
+    // 例文の対象語を読みに置き換えた自然な文を読み上げる（読みが無ければ語そのもの）
+    return q.sentence.replace(/\{[^}]*\}/, q.reading || q.word);
   }
   function speak(text) {
     if (!('speechSynthesis' in window)) {

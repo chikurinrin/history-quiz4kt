@@ -481,6 +481,35 @@ body.auto-paused .auto-indicator { color: var(--sub); animation: none; }
 }
 .word-meaning:empty { display: none; }
 
+/* 類語（語彙集） */
+.word-synonym {
+  margin-top: 8px;
+  background: var(--soft);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: .86rem;
+  color: var(--ink);
+}
+.word-synonym:empty { display: none; }
+
+/* 意味モードの出題表示 */
+.vocab-head { text-align: center; margin: 6px 0 10px; }
+.vocab-word {
+  font-size: 1.9rem;
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+.vocab-reading { font-size: 1rem; color: var(--sub); margin-left: 4px; }
+.vocab-ex {
+  font-size: .9rem;
+  color: var(--sub);
+  background: var(--soft);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 12px;
+}
+
 .kanji-refs {
   margin-top: 12px;
   display: flex;
