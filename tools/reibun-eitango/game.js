@@ -117,9 +117,13 @@
   // なぞっている間は自動で連射するので、SHOTボタンを押さえ続けなくてよい。
   var drag = { id: null, x: 0, y: 0 };
 
+  // 画面上の1pxが、ゲーム内のいくつぶんかを返す。
+  // キャンバスは object-fit: contain で表示されるので、実際に絵が描かれている倍率で計算する。
   function canvasScale() {
     var r = canvas.getBoundingClientRect();
-    return r.width ? W / r.width : 1;
+    if (!r.width || !r.height) return 1;
+    var shown = Math.min(r.width / W, r.height / H);
+    return shown ? 1 / shown : 1;
   }
 
   function bindDragControl() {
@@ -194,33 +198,51 @@
     else if (mq.addListener) mq.addListener(onChange);
   }
 
-  // ---- 全画面（対応している端末だけボタンを出す） ----
+  // ---- 全画面（Fullscreen API） ----
+  // ブラウザの決まりで、全画面はユーザーの操作をきっかけにしないと呼べない。
+  // START を押した瞬間なら呼べるので、そこで自動的に全画面にする。
+  function fsElement() { return document.getElementById('gameView'); }
+  function fsSupported() {
+    var e = fsElement();
+    return !!(e && (e.requestFullscreen || e.webkitRequestFullscreen));
+  }
+  function isFullscreen() {
+    return !!(document.fullscreenElement || document.webkitFullscreenElement);
+  }
+  function enterFullscreen() {
+    if (!fsSupported() || isFullscreen()) return;
+    var e = fsElement();
+    var req = e.requestFullscreen || e.webkitRequestFullscreen;
+    try {
+      var p = req.call(e);
+      // 対応している端末では、ついでに よこ向き に固定する（できなくても気にしない）
+      if (p && p.then) {
+        p.then(function () {
+          if (screen.orientation && screen.orientation.lock) {
+            var lock = screen.orientation.lock('landscape');
+            if (lock && lock['catch']) lock['catch'](function () {});
+          }
+        })['catch'](function () {});
+      }
+    } catch (err) {}
+  }
+  function leaveFullscreen() {
+    if (!isFullscreen()) return;
+    var exit = document.exitFullscreen || document.webkitExitFullscreen;
+    try { if (exit) exit.call(document); } catch (err) {}
+  }
+
   function bindFullscreen() {
     var btn = document.getElementById('rgFullBtn');
-    var stage = document.getElementById('gameView');
-    if (!btn || !stage) return;
-    var req = stage.requestFullscreen || stage.webkitRequestFullscreen;
-    if (!req) return;                    // iPhone の Safari などは非対応なので出さない
+    if (!btn || !fsSupported()) return;   // iPhone の Safari などは非対応なのでボタンを出さない
     btn.classList.remove('hidden');
+    var sync = function () { btn.textContent = isFullscreen() ? '⛶ もどす' : '⛶ 全画面'; };
     btn.addEventListener('click', function () {
-      var exit = document.exitFullscreen || document.webkitExitFullscreen;
-      if (document.fullscreenElement || document.webkitFullscreenElement) {
-        if (exit) exit.call(document);
-      } else {
-        try {
-          var p = req.call(stage);
-          // 対応している端末では、ついでに よこ向き に固定する（できなくても気にしない）
-          if (p && p.then) {
-            p.then(function () {
-              if (screen.orientation && screen.orientation.lock) {
-                var lock = screen.orientation.lock('landscape');
-                if (lock && lock['catch']) lock['catch'](function () {});
-              }
-            })['catch'](function () {});
-          }
-        } catch (e) {}
-      }
+      if (isFullscreen()) leaveFullscreen(); else enterFullscreen();
     });
+    document.addEventListener('fullscreenchange', sync);
+    document.addEventListener('webkitfullscreenchange', sync);
+    sync();
   }
 
   // 画面を開く（まだ始めない：STARTを押したらプレイ権を1回使う）
@@ -252,6 +274,7 @@
   function close() {
     if (raf) { cancelAnimationFrame(raf); raf = null; }
     clearKeys();
+    leaveFullscreen();          // 学習にもどるときは全画面をやめる
     state = 'title';
   }
 
@@ -300,6 +323,7 @@
     var granted = hooks.onStart ? hooks.onStart() : START_LIVES;
     if (granted === false) return;
     lives = (typeof granted === 'number' && granted > 0) ? granted : START_LIVES;
+    enterFullscreen();          // START の操作をきっかけに全画面へ
     score = 0; stage = 1; wordsKilled = 0; quizHits = 0;
     resetWorld();
     hideOverlay();

@@ -60,6 +60,30 @@
 
   function saveReward() { writeJSON(LS_REWARD, reward); }
 
+  // ---- 管理者モード（動作確認用） ----
+  // アプリの見出しを5回つづけて押すとパスワードを聞き、合っていればゲームを何回でも遊べる。
+  // ブラウザの中だけで判定しているので、ソースを見れば分かってしまう。
+  // 「子どもがうっかり押せない」程度の目隠しで、本格的な鍵ではない点に注意。
+  var LS_ADMIN = 'reibun-eitango.admin';
+  var ADMIN_PASSWORD = 'eitango-admin';   // 変えたいときはここを書き換える
+  var ADMIN_LIVES = 6;                    // 管理者モードでプレイ権が無いときのライフ
+  var adminMode = false;
+  try { adminMode = localStorage.getItem(LS_ADMIN) === '1'; } catch (e) {}
+
+  function setAdmin(on) {
+    adminMode = !!on;
+    try {
+      if (adminMode) localStorage.setItem(LS_ADMIN, '1');
+      else localStorage.removeItem(LS_ADMIN);
+    } catch (e) {}
+    renderAdmin();
+    renderRewardButton();
+  }
+
+  function renderAdmin() {
+    $('adminBadge').classList.toggle('hidden', !adminMode);
+  }
+
   // 次に遊ぶときのライフ（良いプレイ権から先に使う）
   function nextLives() {
     if (!reward.tickets.length) return 0;
@@ -677,6 +701,12 @@
 
   function renderRewardButton() {
     var btn = $('rewardBtn');
+    if (adminMode) {
+      btn.textContent = '🔧 ごほうびゲームであそぶ（管理者モード：何回でも）';
+      btn.classList.add('ready');
+      btn.disabled = false;
+      return;
+    }
     if (reward.tickets.length) {
       btn.textContent = '🎮 ごほうびゲームであそぶ（' + ticketsLabel() + '）';
       btn.classList.add('ready');
@@ -716,15 +746,19 @@
   }
 
   function openGame() {
-    if (!reward.tickets.length) return;
+    if (!adminMode && !reward.tickets.length) return;
     showView('gameView');
-    $('rgTickets').textContent = ticketsLabel();
-    window.RewardGame.open(nextLives());
+    $('rgTickets').textContent = adminMode ? '🔧 管理者モード' : ticketsLabel();
+    window.RewardGame.open(adminMode ? (nextLives() || ADMIN_LIVES) : nextLives());
   }
 
   // START を押したときにプレイ権を1回使う。使うのはいちばん良いもの（ライフの多い順）。
   // 戻り値がそのまま今回のライフ数になる。
   function consumeTicket() {
+    if (adminMode) {                       // 動作確認用：プレイ権を減らさない
+      $('rgTickets').textContent = '🔧 管理者モード';
+      return nextLives() || ADMIN_LIVES;
+    }
     if (!reward.tickets.length) {
       alert('あそべる回数がありません。4択テストで ' + REWARD_PER_LIFE +
         '問正解するごとに、ライフ1機ぶんあそべます。');
@@ -1138,6 +1172,34 @@
     if (m) m.classList.remove('masked');
   });
 
+  // 見出しを5回つづけて押すと、管理者モードの出入り口が開く
+  (function bindAdminGate() {
+    var title = document.querySelector('.app-header h1');
+    if (!title) return;
+    var taps = 0, timer = null;
+    title.addEventListener('click', function () {
+      taps++;
+      clearTimeout(timer);
+      timer = setTimeout(function () { taps = 0; }, 1500);
+      if (taps < 5) return;
+      taps = 0;
+      if (adminMode) {
+        if (confirm('管理者モードを終了しますか？')) setAdmin(false);
+        return;
+      }
+      var input = prompt('管理者パスワードを入れてください（動作確認用）');
+      if (input === null) return;
+      if (input === ADMIN_PASSWORD) {
+        setAdmin(true);
+        alert('管理者モードにしました。ごほうびゲームを何回でもあそべます。');
+      } else {
+        alert('パスワードがちがいます。');
+      }
+    });
+  })();
+
+  $('adminOffBtn').addEventListener('click', function () { setAdmin(false); });
+
   $('rewardBtn').addEventListener('click', openGame);
   $('rewardPlayBtn').addEventListener('click', openGame);
   $('gameHomeBtn').addEventListener('click', goHome);
@@ -1199,6 +1261,7 @@
 
   renderGroupPanel();
   updateDashboard();
+  renderAdmin();
   renderRewardButton();
   showView('controls');
 
@@ -1210,7 +1273,7 @@
       setPad: function (on) { settings.gamePad = on; saveSettings(); },
       getHi: function () { return reward.hi || 0; },
       setHi: function (v) { reward.hi = v; saveReward(); },
-      footer: function () { return ticketsLabel(); }
+      footer: function () { return adminMode ? '🔧 管理者モード：何回でもあそべます' : ticketsLabel(); }
     });
   }
 
