@@ -16,6 +16,9 @@
   var W = 800, H = BASE_H;           // 実際に使う広さ（resize で更新）
   var zoom = 1;                      // 画面1px が ゲーム内いくつぶんか
   var START_LIVES = 6;               // ライフの既定値（プレイ権から指定が無いときに使う）
+  var MAX_OPTIONS = 10;              // オプション（自機について撃ってくれる玉）の上限
+  var OPTION_GAP = 9;                // オプション同士の間隔（自機の通った跡を何コマ分さかのぼるか）
+  var TRAIL_MAX = (MAX_OPTIONS + 1) * OPTION_GAP + 20;   // 覚えておく跡の長さ
   var GROUND = 34;                   // 上下の地形の高さ（当たり判定はなし・見た目だけ）
 
   var canvas, ctx, el = {}, hooks = {};
@@ -540,9 +543,9 @@
 
     // オプションが後ろをついてくるように、通った跡を覚えておく
     p.trail.unshift({ x: p.x, y: p.y });
-    if (p.trail.length > 120) p.trail.pop();
+    if (p.trail.length > TRAIL_MAX) p.trail.pop();
     for (var i = 0; i < p.options.length; i++) {
-      var t = p.trail[Math.min((i + 1) * 16, p.trail.length - 1)];
+      var t = p.trail[Math.min((i + 1) * OPTION_GAP, p.trail.length - 1)];
       if (t) { p.options[i].x = t.x; p.options[i].y = t.y; }
     }
 
@@ -598,13 +601,14 @@
       if (p.weapon === 'laser') return;
       p.weapon = 'laser';
     } else if (name === 'OPTION') {
-      if (p.options.length >= 2) return;
+      if (p.options.length >= MAX_OPTIONS) return;
       p.options.push({ x: p.x, y: p.y });
     } else if (name === 'SHIELD') {
       p.shield = 4;
     }
     p.powerIndex = 0;
-    setMessage(name + '!');
+    // オプションは何個目かも出す（10個まで増やせるので、増えたことが分かるように）
+    setMessage(name === 'OPTION' ? 'OPTION ×' + p.options.length + '!' : name + '!');
     burst(p.x, p.y, '#7dd3fc', 14);
   }
 
@@ -613,29 +617,50 @@
   // =====================================================
   var BOSS_FRAME = 1800;   // このフレーム数（約30秒）で1面が終わってボスが出る
 
+  // ステージが進むほど、敵が「速く・多く・よく撃つ」ようになる。
+  // 上がり続けると手に負えなくなるので、8ステージ目で頭打ちにする。
+  // ステージ1の値は、これまでと同じになるようにしてある。
+  var HARD_CAP_STAGE = 8;
+  function difficultyOf(st) {
+    var n = Math.min(Math.max(st, 1), HARD_CAP_STAGE) - 1;   // 0〜7
+    return {
+      step: n,
+      speed: 1 + n * 0.35,                        // ザコの速さの係数
+      straightEvery: Math.max(48, 90 - n * 7),    // まっすぐ来る敵の出る間隔
+      squadEvery: Math.max(130, 200 - n * 12),    // 編隊の出る間隔
+      squadSize: Math.min(8, 5 + Math.floor(n / 2)),  // 編隊の機数
+      shooterEvery: Math.max(190, 320 - n * 20),  // 撃ってくる敵の出る間隔
+      shooterFire: Math.max(45, 90 - n * 7),      // 撃ってくる敵の発射間隔
+      shooterBullet: Math.min(3.8, 2.6 + n * 0.15), // 敵弾の速さ
+      bossHp: 60 + n * 25,                        // ボスの体力
+      bossFire: Math.max(28, 46 - n * 3),         // ボスの発射間隔
+      bossBullet: Math.min(4.2, 3.2 + n * 0.12)   // ボスの弾の速さ
+    };
+  }
+
   function spawn() {
     if (boss) return;
     var f = frame % BOSS_FRAME;
     if (f === BOSS_FRAME - 1) { spawnBoss(); return; }
     if (f > BOSS_FRAME - 120) return;      // ボス前は少し静かにする
 
-    var hard = 1 + (stage - 1) * 0.25;
+    var d = difficultyOf(stage);
 
-    // 編隊（5機まとめて出て、全部倒すとカプセルが出る）
-    if (f % 200 === 40) {
+    // 編隊（まとめて出て、全部倒すとカプセルが出る）
+    if (f % d.squadEvery === 40) {
       var gid = 'g' + frame;
       var baseY = 90 + Math.random() * (H - 220);
-      for (var i = 0; i < 5; i++) {
-        enemies.push(makeEnemy('wave', W + 40 + i * 46, baseY, gid, hard));
+      for (var i = 0; i < d.squadSize; i++) {
+        enemies.push(makeEnemy('wave', W + 40 + i * 46, baseY, gid, d));
       }
     }
     // 単機（まっすぐ）
-    if (f % 90 === 0) {
-      enemies.push(makeEnemy('straight', W + 30, GROUND + 30 + Math.random() * (H - GROUND * 2 - 60), null, hard));
+    if (f % d.straightEvery === 0) {
+      enemies.push(makeEnemy('straight', W + 30, GROUND + 30 + Math.random() * (H - GROUND * 2 - 60), null, d));
     }
     // 撃ってくる敵
-    if (f % 320 === 120) {
-      enemies.push(makeEnemy('shooter', W + 30, 80 + Math.random() * (H - 200), null, hard));
+    if (f % d.shooterEvery === 120) {
+      enemies.push(makeEnemy('shooter', W + 30, 80 + Math.random() * (H - 200), null, d));
     }
     // 単語エネミー（英語を掲げて飛んでくる。撃つと日本語になる）
     if (f % 150 === 70) {
@@ -658,14 +683,17 @@
     }
   }
 
-  function makeEnemy(type, x, y, group, hard) {
+  function makeEnemy(type, x, y, group, d) {
     var e = {
       type: type, x: x, y: y, w: 28, h: 22, t: 0,
       group: group, baseY: y, hp: 1, score: 100, cool: 60
     };
-    if (type === 'wave') { e.vx = -2.6 - hard * 0.2; e.score = 120; }
-    else if (type === 'shooter') { e.vx = -1.5; e.hp = 3; e.w = 32; e.h = 26; e.score = 300; }
-    else { e.vx = -3.2 - hard * 0.3; }
+    if (type === 'wave') { e.vx = -2.6 - d.speed * 0.2; e.score = 120; }
+    else if (type === 'shooter') {
+      e.vx = -1.5; e.hp = 3; e.w = 32; e.h = 26; e.score = 300;
+      e.fireEvery = d.shooterFire;
+      e.bulletSpeed = d.shooterBullet;
+    } else { e.vx = -3.2 - d.speed * 0.3; }
     return e;
   }
 
@@ -679,8 +707,8 @@
       if (e.type === 'shooter') {
         e.cool--;
         if (e.cool <= 0 && e.x < W - 20) {
-          e.cool = 90;
-          fireAtPlayer(e.x, e.y, 2.6);
+          e.cool = e.fireEvery || 90;
+          fireAtPlayer(e.x, e.y, e.bulletSpeed || 2.6);
         }
       }
       if (e.x < -60) enemies.splice(i, 1);
@@ -695,9 +723,11 @@
 
   // ---- ボス ----
   function spawnBoss() {
+    var d = difficultyOf(stage);
     boss = {
       x: W + 120, y: H / 2, w: 120, h: 130,
-      hp: 60 + (stage - 1) * 25, maxHp: 60 + (stage - 1) * 25,
+      hp: d.bossHp, maxHp: d.bossHp,
+      fireEvery: d.bossFire, bulletSpeed: d.bossBullet,
       t: 0, cool: 60, entering: true
     };
     // ボスのHPバーと「おだい」の帯が重ならないよう、出題は打ち切る
@@ -716,12 +746,13 @@
       boss.y = H / 2 + Math.sin(boss.t / 60) * (H / 2 - boss.h / 2 - GROUND - 10);
       boss.cool--;
       if (boss.cool <= 0) {
-        boss.cool = 46;
+        boss.cool = boss.fireEvery || 46;
+        var bs = boss.bulletSpeed || 3.2;
         for (var a = -2; a <= 2; a++) {
           var ang = Math.PI + a * 0.22;
-          eBullets.push({ x: boss.x - 10, y: boss.y, vx: Math.cos(ang) * 3.2, vy: Math.sin(ang) * 3.2, r: 6 });
+          eBullets.push({ x: boss.x - 10, y: boss.y, vx: Math.cos(ang) * bs, vy: Math.sin(ang) * bs, r: 6 });
         }
-        if (boss.t % 3 === 0) fireAtPlayer(boss.x - 10, boss.y, 3.4);
+        if (boss.t % 3 === 0) fireAtPlayer(boss.x - 10, boss.y, bs + 0.2);
       }
     }
   }
@@ -1123,6 +1154,7 @@
       state: state, frame: frame, score: score, lives: lives, stage: stage,
       enemies: enemies ? enemies.length : 0,
       bullets: bullets ? bullets.length : 0,
+      eBullets: eBullets ? eBullets.length : 0,
       capsules: capsules ? capsules.length : 0,
       boss: !!boss,
       words: enemies ? enemies.filter(function (e) { return e.type === 'word'; }).length : 0,
@@ -1144,6 +1176,10 @@
       powerIndex: player ? player.powerIndex : 0,
       weapon: player ? player.weapon : '',
       options: player ? player.options.length : 0,
+      optionPos: player ? player.options.map(function (o) { return { x: Math.round(o.x), y: Math.round(o.y) }; }) : [],
+      maxOptions: MAX_OPTIONS,
+      difficulty: difficultyOf(stage),
+      trailLen: player ? player.trail.length : 0,
       keys: keys
     };
   }
