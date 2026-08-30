@@ -253,22 +253,44 @@
 
 <!-- ===================== ごほうびゲーム ===================== -->
 <section class="game-view hidden" id="gameView">
-  <div class="quiz-top">
+  <div class="quiz-top rg-bar">
     <button class="home-btn" id="gameHomeBtn">← 学習にもどる</button>
-    <span class="badge">🎮 ごほうびゲーム</span>
+    <span class="badge rg-only-wide">🎮 ごほうびゲーム</span>
     <span class="progress" id="rgTickets"></span>
+    <button class="home-btn rg-pad-btn" id="rgPadBtn" title="操作ボタンの表示を切り替える">✋ ボタン</button>
+    <button class="home-btn rg-full-btn hidden" id="rgFullBtn" title="画面いっぱいにする">⛶ 全画面</button>
   </div>
 
   <div class="rg-hud">
     <span>SCORE <b id="rgScore">0</b></span>
-    <span>HI <b id="rgHi">0</b></span>
+    <span class="rg-only-wide">HI <b id="rgHi">0</b></span>
     <span>STAGE <b id="rgStage">1</b></span>
     <span>♥ <b id="rgLives">-</b></span>
     <span class="rg-meter" id="rgMeter"></span>
   </div>
 
-  <div class="rg-stage">
+  <!-- ゲーム画面。スマホでは操作ボタンをこの上に重ねて、縦の場所を取らないようにする -->
+  <div class="rg-stage" id="rgStage">
     <canvas id="rgCanvas" width="800" height="450"></canvas>
+
+    <!-- なぞる操作が主。十字ボタンと SHOT は既定で隠し、POWER だけ残す -->
+    <div class="rg-touch pad-off" id="rgTouch">
+      <div class="rg-pad">
+        <button class="rg-ctrl" data-key="up">▲</button>
+        <div class="rg-pad-row">
+          <button class="rg-ctrl" data-key="left">◀</button>
+          <button class="rg-ctrl" data-key="right">▶</button>
+        </div>
+        <button class="rg-ctrl" data-key="down">▼</button>
+      </div>
+      <div class="rg-buttons">
+        <button class="rg-ctrl rg-fire" data-key="fire">SHOT</button>
+        <button class="rg-ctrl rg-power" data-key="power">POWER</button>
+      </div>
+    </div>
+
+    <div class="rg-rotate hidden" id="rgRotate">📱 よこ向きにすると、画面が大きくなって遊びやすくなります</div>
+
     <div class="rg-overlay" id="rgOverlay">
       <div class="rg-panel">
         <h2 id="rgTitle">ごほうびゲーム</h2>
@@ -278,22 +300,7 @@
     </div>
   </div>
 
-  <div class="rg-touch">
-    <div class="rg-pad">
-      <button class="rg-ctrl" data-key="up">▲</button>
-      <div class="rg-pad-row">
-        <button class="rg-ctrl" data-key="left">◀</button>
-        <button class="rg-ctrl" data-key="right">▶</button>
-      </div>
-      <button class="rg-ctrl" data-key="down">▼</button>
-    </div>
-    <div class="rg-buttons">
-      <button class="rg-ctrl rg-fire" data-key="fire">SHOT</button>
-      <button class="rg-ctrl rg-power" data-key="power">POWER</button>
-    </div>
-  </div>
-
-  <p class="hint">矢印キー / WASD で移動、スペース で連射、Z でパワーアップ発動。カプセル <b>C</b> を取るとゲージが進みます。<br>
+  <p class="hint rg-only-wide">矢印キー / WASD で移動、スペース で連射、Z でパワーアップ発動。カプセル <b>C</b> を取るとゲージが進みます。<br>
     英語の敵は<b>1発当てると日本語に変わり</b>、もう1発でたおせます。<b>おだい</b>に合う単語をたおすと大ボーナス。</p>
 </section>
 

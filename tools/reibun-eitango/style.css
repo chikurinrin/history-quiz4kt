@@ -610,8 +610,22 @@ body {
 }
 .rg-meter i.on { background: var(--brand); border-color: var(--brand); color: #fff; }
 
-.rg-stage { position: relative; background: #050a18; border-radius: 10px; overflow: hidden; }
-#rgCanvas { display: block; width: 100%; height: auto; }
+.rg-stage {
+  position: relative;
+  background: #050a18;
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+}
+#rgCanvas {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  touch-action: none;   /* 指でなぞって動かすので、画面のスクロールは止める */
+}
 .rg-overlay {
   position: absolute;
   inset: 0;
@@ -628,28 +642,100 @@ body {
 .rg-panel b { color: #7dd3fc; }
 .rg-panel .start-btn { margin-top: 14px; }
 
-.rg-touch { display: none; justify-content: space-between; gap: 12px; margin-top: 12px; }
-.rg-pad { display: flex; flex-direction: column; align-items: center; gap: 5px; }
-.rg-pad-row { display: flex; gap: 5px; }
-.rg-buttons { display: flex; flex-direction: column; justify-content: center; gap: 8px; }
+/* 操作ボタンはゲーム画面に重ねる（縦の場所を取らないように） */
+.rg-touch {
+  display: none;
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 8px;
+  pointer-events: none;   /* ボタン以外は下の画面に触れないようにする */
+}
+.rg-pad { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.rg-pad-row { display: flex; gap: 4px; }
+.rg-buttons { display: flex; flex-direction: column; justify-content: flex-end; gap: 6px; }
 .rg-ctrl {
   font: inherit;
-  width: 54px; height: 44px;
+  width: 48px; height: 42px;
   border-radius: 10px;
-  border: 1px solid var(--line);
-  background: var(--panel);
-  color: var(--ink);
+  border: 1px solid rgba(226, 232, 240, .45);
+  background: rgba(15, 23, 42, .42);
+  color: #e2e8f0;
   font-size: .9rem;
   cursor: pointer;
   user-select: none;
   -webkit-user-select: none;
   touch-action: manipulation;
+  pointer-events: auto;
 }
 .rg-ctrl:active { background: var(--brand); border-color: var(--brand); color: #fff; }
-.rg-fire, .rg-power { width: 92px; font-size: .78rem; font-weight: 700; }
-.rg-fire { background: var(--brand); border-color: var(--brand); color: #fff; }
+.rg-fire, .rg-power { width: 78px; font-size: .74rem; font-weight: 700; }
+.rg-fire { background: rgba(200, 16, 46, .6); border-color: rgba(255, 255, 255, .5); color: #fff; }
+
+/* なぞる操作が主なので、既定では十字ボタンと SHOT を隠して POWER だけ残す */
+.rg-touch.pad-off .rg-pad,
+.rg-touch.pad-off .rg-fire { display: none; }
+/* 自機は左から出るので、POWER は右下に寄せる */
+.rg-touch.pad-off { justify-content: flex-end; }
+.rg-pad-btn { display: none; }
+.rg-pad-btn.on { color: var(--brand-dark); border-color: var(--brand); }
+
+/* よこ向きのおすすめ（たて向きのときだけ、しばらく出す） */
+.rg-rotate {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  max-width: 92%;
+  background: rgba(15, 23, 42, .82);
+  border: 1px solid rgba(226, 232, 240, .35);
+  color: #e2e8f0;
+  font-size: .76rem;
+  padding: 7px 14px;
+  border-radius: 999px;
+  text-align: center;
+  pointer-events: none;
+}
 
 /* 指で操作する画面ではボタンを出す */
-@media (hover: none), (max-width: 700px) {
+@media (hover: none), (max-width: 820px) {
   .rg-touch { display: flex; }
+  .rg-pad-btn { display: inline-block; }
+}
+
+/* 縦が狭い画面（横向きのスマホなど）ではボタンを小さくする */
+@media (max-height: 480px) {
+  .rg-ctrl { width: 42px; height: 34px; font-size: .8rem; }
+  .rg-fire, .rg-power { width: 68px; font-size: .66rem; }
+  .rg-pad, .rg-pad-row { gap: 3px; }
+  .rg-touch { padding: 6px; }
+}
+
+/* ===== スマホ：ゲーム中は画面いっぱいに使う ===== */
+@media (max-width: 820px), (max-height: 560px) {
+  body.game-open { overflow: hidden; }
+  body.game-open .app-header,
+  body.game-open .app-footer,
+  body.game-open .rg-only-wide { display: none !important; }
+
+  body.game-open .game-view {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    max-width: none;
+    margin: 0;
+    border: none;
+    border-radius: 0;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  body.game-open .rg-bar { margin-bottom: 0; gap: 6px; }
+  body.game-open .rg-hud { margin-bottom: 0; font-size: .72rem; gap: 8px; }
+  body.game-open .rg-meter i { font-size: .55rem; padding: 1px 4px; }
+  body.game-open .rg-stage { flex: 1 1 auto; border-radius: 8px; }
+  body.game-open .rg-panel p { font-size: .78rem; line-height: 1.7; }
 }

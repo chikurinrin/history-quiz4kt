@@ -56,6 +56,7 @@
   function clearKeys() {
     for (var k in keys) keys[k] = false;
     powerLatch = false;
+    drag.id = null;
   }
 
   function isOpen() { return el.view && !el.view.classList.contains('hidden'); }
@@ -101,9 +102,125 @@
       btn.addEventListener('mouseleave', off);
     });
 
+    bindDragControl();
+    bindPadToggle();
+    bindRotateHint();
+    bindFullscreen();
+
     addEventListener('keydown', onKeyDown);
     addEventListener('keyup', onKeyUp);
     inited = true;
+  }
+
+  // ---- 画面をなぞって自機を動かす（スマホ向け） ----
+  // 指の位置に自機を置くと指で隠れてしまうので、「動かした分だけ動く」やり方にする。
+  // なぞっている間は自動で連射するので、SHOTボタンを押さえ続けなくてよい。
+  var drag = { id: null, x: 0, y: 0 };
+
+  function canvasScale() {
+    var r = canvas.getBoundingClientRect();
+    return r.width ? W / r.width : 1;
+  }
+
+  function bindDragControl() {
+    canvas.addEventListener('pointerdown', function (e) {
+      if (state !== 'playing' || drag.id !== null) return;
+      drag.id = e.pointerId;
+      drag.x = e.clientX; drag.y = e.clientY;
+      keys.fire = true;
+      if (canvas.setPointerCapture) { try { canvas.setPointerCapture(e.pointerId); } catch (err) {} }
+      e.preventDefault();
+    });
+    canvas.addEventListener('pointermove', function (e) {
+      if (drag.id !== e.pointerId || !player) return;
+      var s = canvasScale();
+      player.x += (e.clientX - drag.x) * s;
+      player.y += (e.clientY - drag.y) * s;
+      drag.x = e.clientX; drag.y = e.clientY;
+      e.preventDefault();
+    });
+    var end = function (e) {
+      if (drag.id !== e.pointerId) return;
+      drag.id = null;
+      keys.fire = false;
+    };
+    canvas.addEventListener('pointerup', end);
+    canvas.addEventListener('pointercancel', end);
+    canvas.addEventListener('pointerleave', end);
+  }
+
+  // ---- 十字ボタン・SHOT の表示切替 ----
+  // ふだんは「なぞる操作」で遊べるので隠しておき、ボタンで動かしたい人だけ出せるようにする。
+  // POWER は指では代わりがきかないので、いつも出しておく。
+  function bindPadToggle() {
+    var btn = document.getElementById('rgPadBtn');
+    var touch = document.getElementById('rgTouch');
+    if (!btn || !touch) return;
+    var apply = function (on) {
+      touch.classList.toggle('pad-off', !on);
+      btn.classList.toggle('on', on);
+      btn.textContent = on ? '✋ ボタンを隠す' : '✋ ボタンを出す';
+    };
+    apply(hooks.getPad ? hooks.getPad() === true : false);
+    btn.addEventListener('click', function () {
+      var on = touch.classList.contains('pad-off');   // 隠れていたら出す
+      apply(on);
+      if (hooks.setPad) hooks.setPad(on);
+      clearKeys();                                     // 押しっぱなし状態を残さない
+    });
+  }
+
+  // ---- よこ向きのおすすめ（たて向きのときだけ、しばらく出す） ----
+  var rotateTimer = null;
+  function showRotateHint() {
+    var tip = document.getElementById('rgRotate');
+    if (!tip || !matchMedia) return;
+    var touch = matchMedia('(hover: none)').matches;
+    var portrait = matchMedia('(orientation: portrait)').matches;
+    clearTimeout(rotateTimer);
+    tip.classList.toggle('hidden', !(touch && portrait));
+    if (touch && portrait) {
+      rotateTimer = setTimeout(function () { tip.classList.add('hidden'); }, 6000);
+    }
+  }
+  function bindRotateHint() {
+    if (!matchMedia) return;
+    var mq = matchMedia('(orientation: portrait)');
+    var onChange = function () {
+      if (isOpen()) showRotateHint();
+      else document.getElementById('rgRotate').classList.add('hidden');
+    };
+    if (mq.addEventListener) mq.addEventListener('change', onChange);
+    else if (mq.addListener) mq.addListener(onChange);
+  }
+
+  // ---- 全画面（対応している端末だけボタンを出す） ----
+  function bindFullscreen() {
+    var btn = document.getElementById('rgFullBtn');
+    var stage = document.getElementById('gameView');
+    if (!btn || !stage) return;
+    var req = stage.requestFullscreen || stage.webkitRequestFullscreen;
+    if (!req) return;                    // iPhone の Safari などは非対応なので出さない
+    btn.classList.remove('hidden');
+    btn.addEventListener('click', function () {
+      var exit = document.exitFullscreen || document.webkitExitFullscreen;
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        if (exit) exit.call(document);
+      } else {
+        try {
+          var p = req.call(stage);
+          // 対応している端末では、ついでに よこ向き に固定する（できなくても気にしない）
+          if (p && p.then) {
+            p.then(function () {
+              if (screen.orientation && screen.orientation.lock) {
+                var lock = screen.orientation.lock('landscape');
+                if (lock && lock['catch']) lock['catch'](function () {});
+              }
+            })['catch'](function () {});
+          }
+        } catch (e) {}
+      }
+    });
   }
 
   // 画面を開く（まだ始めない：STARTを押したらプレイ権を1回使う）
@@ -113,14 +230,21 @@
     lives = livesForNextPlay > 0 ? livesForNextPlay : START_LIVES;
     clearKeys();
     resetWorld();
+    var touch = matchMedia && matchMedia('(hover: none)').matches;
+    var howTo = touch
+      ? '📱 <b>よこ向き</b>にして、<b>画面をなぞって</b>あそびます。<br>' +
+        'なぞった分だけ自機が動き、<b>なぞっている間は自動で連射</b>します。<br>' +
+        'パワーアップは右下の <b>POWER</b> ボタン。'
+      : '矢印キー / WASD で移動、スペース で連射、Z でパワーアップ発動。';
     showOverlay('ごほうびゲーム',
       '今回のライフは <b>♥ ' + lives + '</b> です。<br>' +
-      '矢印キー / WASD で移動、スペース で連射、Z でパワーアップ発動。<br>' +
+      howTo + '<br>' +
       'カプセル <b>C</b> を取るとゲージが進みます。好きなところで発動してください。<br><br>' +
       '英語をかかげた敵は、<b>1発当てると日本語に変わり</b>、もう1発でたおせます。<br>' +
       '<b>おだい</b>が出たら、その意味に合う単語の敵をたおすと大ボーナス！<br>' +
-      '<small>出てくる単語は、あなたが苦手な語・今日の復習の語から選ばれます。<br>' +
-      'スマホは画面下のボタンで操作できます。</small>');
+      '<small>出てくる単語は、あなたが苦手な語・今日の復習の語から選ばれます。' +
+      (touch ? '<br>十字ボタンで動かしたいときは、上の「✋ ボタンを出す」を押してください。' : '') + '</small>');
+    showRotateHint();
     drawFrame();
     loop();
   }
@@ -922,6 +1046,8 @@
       quiz: quiz ? { meaning: quiz.meaning, answer: quiz.answer } : null,
       quizEnemies: enemies ? enemies.filter(function (e) { return e.type === 'word' && e.quiz; }).length : 0,
       quizAnswerOnField: !!(quiz && enemies.some(function (e) { return e.type === 'word' && e.quiz && e.word === quiz.answer; })),
+      px: player ? player.x : 0,
+      py: player ? player.y : 0,
       powerIndex: player ? player.powerIndex : 0,
       weapon: player ? player.weapon : '',
       options: player ? player.options.length : 0,

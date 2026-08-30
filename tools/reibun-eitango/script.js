@@ -374,6 +374,8 @@
   function showView(name) {
     VIEWS.forEach(function (v) { $(v).classList.toggle('hidden', v !== name); });
     $('dashboard').classList.toggle('hidden', name !== 'controls');
+    // ゲーム中はスマホで画面いっぱいに使う（ヘッダーやフッターを隠す）
+    document.body.classList.toggle('game-open', name === 'gameView');
     if (name !== 'quiz') stopAuto();
     if (name !== "gameView" && window.RewardGame) window.RewardGame.close();
     if (synth) synth.cancel();
@@ -1204,6 +1206,8 @@
     window.RewardGame.init({
       onStart: consumeTicket,
       getWords: gameWordPool,
+      getPad: function () { return settings.gamePad === true; },   // 既定は「なぞる操作」だけ
+      setPad: function (on) { settings.gamePad = on; saveSettings(); },
       getHi: function () { return reward.hi || 0; },
       setHi: function (v) { reward.hi = v; saveReward(); },
       footer: function () { return ticketsLabel(); }
