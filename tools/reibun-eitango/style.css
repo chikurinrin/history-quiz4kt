@@ -623,10 +623,37 @@ body {
 #rgCanvas {
   display: block;
   width: 100%;
-  height: 100%;
-  object-fit: contain;  /* 枠の中でいちばん大きくなるように、比を保って伸縮する */
+  height: 100%;         /* 枠いっぱい。ゲーム側が画面の形に合わせて描く範囲を決める */
   touch-action: none;   /* 指でなぞって動かすので、画面のスクロールは止める */
 }
+
+/* 表示や操作は、すべてゲーム画面の上に重ねる（画面を削らない） */
+.rg-stage > .rg-bar,
+.rg-stage > .rg-hud {
+  position: absolute;
+  left: 0; right: 0;
+  z-index: 5;
+  margin: 0;
+  padding: 6px 10px;
+  pointer-events: none;
+}
+.rg-stage > .rg-bar { top: 0; }
+.rg-stage > .rg-hud {
+  top: 34px;
+  background: none;
+  color: #cbd5e1;
+  text-shadow: 0 1px 3px rgba(2, 6, 23, .9);
+}
+.rg-stage > .rg-hud b { color: #fff; }
+.rg-stage > .rg-bar > *, .rg-stage > .rg-hud > * { pointer-events: auto; }
+.rg-stage > .rg-bar .home-btn {
+  background: rgba(15, 23, 42, .55);
+  border-color: rgba(226, 232, 240, .4);
+  color: #e2e8f0;
+}
+.rg-stage > .rg-bar .badge { background: rgba(15, 23, 42, .55); color: #fda4af; }
+.rg-stage > .rg-bar .progress { color: #cbd5e1; text-shadow: 0 1px 3px rgba(2, 6, 23, .9); }
+.rg-stage > .rg-hud .rg-meter i { border-color: rgba(226, 232, 240, .35); color: #cbd5e1; }
 .rg-overlay {
   position: absolute;
   inset: 0;
@@ -730,17 +757,29 @@ body.game-open .game-view {
   /* iPhone はアドレスバーの分だけ見える高さが変わるので、実際の高さ（dvh）に合わせる */
   height: 100vh;
   height: 100dvh;
-  /* ノッチやホームバーにかからないようにする */
-  padding: calc(8px + env(safe-area-inset-top)) calc(8px + env(safe-area-inset-right))
-           calc(8px + env(safe-area-inset-bottom)) calc(8px + env(safe-area-inset-left));
+  /* ゲーム画面だけを画面いっぱいに広げるので、まわりの余白は取らない */
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 0;
 }
-body.game-open .rg-bar { margin-bottom: 0; }
-body.game-open .rg-hud { margin-bottom: 0; }
-body.game-open .rg-stage { flex: 1 1 auto; }
-body.game-open .game-view .hint { margin: 0; text-align: center; }
+body.game-open .rg-stage { flex: 1 1 auto; border-radius: 0; }
+/* ノッチやホームバーにかからないよう、重ねる表示だけずらす */
+body.game-open .rg-stage > .rg-bar {
+  padding-top: calc(6px + env(safe-area-inset-top));
+  padding-left: calc(10px + env(safe-area-inset-left));
+  padding-right: calc(10px + env(safe-area-inset-right));
+}
+body.game-open .rg-stage > .rg-hud {
+  top: calc(34px + env(safe-area-inset-top));
+  padding-left: calc(10px + env(safe-area-inset-left));
+}
+body.game-open .rg-touch {
+  padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  padding-left: calc(8px + env(safe-area-inset-left));
+  padding-right: calc(8px + env(safe-area-inset-right));
+}
+body.game-open .game-view .hint { display: none !important; }
 
 /* 本当の全画面（Fullscreen API）のときも同じ見た目にする */
 .game-view:fullscreen { background: var(--card); }
@@ -749,7 +788,7 @@ body.game-open .game-view .hint { margin: 0; text-align: center; }
 /* 画面が狭いときは、よけいな表示を削ってさらに詰める */
 @media (max-width: 820px), (max-height: 560px) {
   body.game-open .rg-only-wide { display: none !important; }
-  body.game-open .game-view { padding: 6px; gap: 4px; }
+  body.game-open .rg-stage > .rg-hud { top: calc(30px + env(safe-area-inset-top)); }
   body.game-open .rg-bar { gap: 6px; }
   body.game-open .rg-hud { font-size: .72rem; gap: 8px; }
   body.game-open .rg-meter i { font-size: .55rem; padding: 1px 4px; }

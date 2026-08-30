@@ -265,25 +265,25 @@
 
 <!-- ===================== ごほうびゲーム ===================== -->
 <section class="game-view hidden" id="gameView">
-  <div class="quiz-top rg-bar">
-    <button class="home-btn" id="gameHomeBtn">← 学習にもどる</button>
-    <span class="badge rg-only-wide">🎮 ごほうびゲーム</span>
-    <span class="progress" id="rgTickets"></span>
-    <button class="home-btn rg-pad-btn" id="rgPadBtn" title="操作ボタンの表示を切り替える">✋ ボタン</button>
-    <button class="home-btn rg-full-btn hidden" id="rgFullBtn" title="画面いっぱいにする">⛶ 全画面</button>
-  </div>
-
-  <div class="rg-hud">
-    <span>SCORE <b id="rgScore">0</b></span>
-    <span class="rg-only-wide">HI <b id="rgHi">0</b></span>
-    <span>STAGE <b id="rgStage">1</b></span>
-    <span>♥ <b id="rgLives">-</b></span>
-    <span class="rg-meter" id="rgMeter"></span>
-  </div>
-
-  <!-- ゲーム画面。スマホでは操作ボタンをこの上に重ねて、縦の場所を取らないようにする -->
-  <div class="rg-stage" id="rgStage">
+  <!-- ゲーム画面を画面いっぱいに広げ、操作ボタンや表示はすべてこの上に重ねる -->
+  <div class="rg-stage" id="rgStageBox">
     <canvas id="rgCanvas" width="800" height="450"></canvas>
+
+    <div class="quiz-top rg-bar">
+      <button class="home-btn" id="gameHomeBtn">← 学習にもどる</button>
+      <span class="badge rg-only-wide">🎮 ごほうびゲーム</span>
+      <span class="progress" id="rgTickets"></span>
+      <button class="home-btn rg-pad-btn" id="rgPadBtn" title="操作ボタンの表示を切り替える">✋ ボタン</button>
+      <button class="home-btn rg-full-btn hidden" id="rgFullBtn" title="画面いっぱいにする">⛶ 全画面</button>
+    </div>
+
+    <div class="rg-hud">
+      <span>SCORE <b id="rgScore">0</b></span>
+      <span class="rg-only-wide">HI <b id="rgHi">0</b></span>
+      <span>STAGE <b id="rgStage">1</b></span>
+      <span>♥ <b id="rgLives">-</b></span>
+      <span class="rg-meter" id="rgMeter"></span>
+    </div>
 
     <!-- なぞる操作が主。十字ボタンと SHOT は既定で隠し、POWER だけ残す -->
     <div class="rg-touch pad-off" id="rgTouch">

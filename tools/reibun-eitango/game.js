@@ -6,7 +6,15 @@
 (function (global) {
   'use strict';
 
-  var W = 800, H = 450;              // 内部の描画サイズ（表示はCSSで拡大縮小）
+  // ゲーム内の広さ。画面いっぱいに広げるため、画面の形に合わせて毎回決め直す。
+  // 縦の広さ（BASE_H）は端末によらず一定にして、difficulty が変わらないようにする。
+  // 横は画面の比率ぶんだけ広くなる（横長の画面ほど先が見える）。
+  // ただし極端に細長くなるときは、代わりに縦を広げる。
+  var BASE_H = 450;                  // ゲーム内の高さの基準
+  var MIN_W = 560;                   // これより横が狭くなるなら、縦を広げて調整する
+  var MAX_W = 1000;                  // これより横が広くなるなら、縦を縮めて調整する
+  var W = 800, H = BASE_H;           // 実際に使う広さ（resize で更新）
+  var zoom = 1;                      // 画面1px が ゲーム内いくつぶんか
   var START_LIVES = 6;               // ライフの既定値（プレイ権から指定が無いときに使う）
   var GROUND = 34;                   // 上下の地形の高さ（当たり判定はなし・見た目だけ）
 
@@ -102,6 +110,7 @@
       btn.addEventListener('mouseleave', off);
     });
 
+    bindResize();
     bindDragControl();
     bindPadToggle();
     bindRotateHint();
@@ -117,13 +126,54 @@
   // なぞっている間は自動で連射するので、SHOTボタンを押さえ続けなくてよい。
   var drag = { id: null, x: 0, y: 0 };
 
-  // 画面上の1pxが、ゲーム内のいくつぶんかを返す。
-  // キャンバスは object-fit: contain で表示されるので、実際に絵が描かれている倍率で計算する。
-  function canvasScale() {
+  // 画面上の1pxが、ゲーム内のいくつぶんかを返す
+  function canvasScale() { return zoom ? 1 / zoom : 1; }
+
+  // 画面に重ねたスコア表示（HTML側）の下端を、ゲーム内の座標で返す。
+  // キャンバスに描く帯（おだい・ボスHP）がその表示と重ならないようにするため。
+  function hudBottom() { return 58 * canvasScale(); }
+
+  // ---- 画面の大きさに合わせて、描く範囲を決め直す ----
+  function resize() {
+    if (!canvas || !ctx) return;
     var r = canvas.getBoundingClientRect();
-    if (!r.width || !r.height) return 1;
-    var shown = Math.min(r.width / W, r.height / H);
-    return shown ? 1 / shown : 1;
+    var cw = Math.max(1, Math.round(r.width));
+    var ch = Math.max(1, Math.round(r.height));
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);   // 高精細画面でもぼやけないように
+
+    zoom = ch / BASE_H;
+    if (cw / zoom < MIN_W) zoom = cw / MIN_W;   // 縦長すぎるときは、縦を広げて横を確保する
+    if (cw / zoom > MAX_W) zoom = cw / MAX_W;   // 横長すぎるときは、横を抑えて大きく見せる
+    W = cw / zoom;
+    H = ch / zoom;
+
+    canvas.width = Math.round(cw * dpr);
+    canvas.height = Math.round(ch * dpr);
+    ctx.setTransform(dpr * zoom, 0, 0, dpr * zoom, 0, 0);   // 以降はゲーム内の単位で描ける
+
+    // 広さが変わったので、はみ出したものを画面内に戻す
+    if (player) {
+      player.x = Math.max(16, Math.min(player.x, W - 40));
+      player.y = Math.max(GROUND + 12, Math.min(player.y, H - GROUND - 12));
+    }
+    if (stars) {
+      stars.forEach(function (s) {
+        if (s.x > W) s.x = Math.random() * W;
+        if (s.y > H) s.y = Math.random() * H;
+      });
+    }
+    if (boss) boss.y = Math.min(boss.y, H - boss.h / 2);
+    // まだ世界が作られていないときは描かない（初回の open() は resetWorld より前に呼ぶため）
+    if (state !== 'playing' && stars) drawFrame();
+  }
+
+  function bindResize() {
+    if (window.ResizeObserver) {
+      new ResizeObserver(function () { if (isOpen()) resize(); }).observe(canvas);
+    } else {
+      addEventListener('resize', function () { if (isOpen()) resize(); });
+    }
+    addEventListener('orientationchange', function () { setTimeout(function () { if (isOpen()) resize(); }, 200); });
   }
 
   function bindDragControl() {
@@ -256,6 +306,7 @@
     state = 'title';
     lives = livesForNextPlay > 0 ? livesForNextPlay : START_LIVES;
     clearKeys();
+    resize();          // 画面の形に合わせて描く範囲を決めてから作る
     resetWorld();
     var touch = matchMedia && matchMedia('(hover: none)').matches;
     var howTo = touch
@@ -339,6 +390,7 @@
     lives = (typeof granted === 'number' && granted > 0) ? granted : START_LIVES;
     enterFullscreen();          // START の操作をきっかけに全画面へ
     score = 0; stage = 1; wordsKilled = 0; quizHits = 0;
+    resize();
     resetWorld();
     hideOverlay();
     state = 'playing';
@@ -925,18 +977,19 @@
     });
     ctx.globalAlpha = 1;
 
-    // おだい（画面上の帯）
+    // おだい（画面上の帯）。画面に重ねたスコア表示の下に置く
     if (quiz) {
+      var top = hudBottom();
       ctx.font = 'bold 17px ' + JP_FONT;
       var text = 'おだい：「' + quiz.meaning + '」の単語をたおせ！';
       var tw = ctx.measureText(text).width;
       ctx.fillStyle = 'rgba(251,191,36,.92)';
-      ctx.fillRect(W / 2 - tw / 2 - 14, 8, tw + 28, 28);
+      ctx.fillRect(W / 2 - tw / 2 - 14, top, tw + 28, 28);
       ctx.fillStyle = '#422006';
-      ctx.fillText(text, W / 2, 28);
+      ctx.fillText(text, W / 2, top + 20);
       // 残り時間
       ctx.fillStyle = 'rgba(66,32,6,.35)';
-      ctx.fillRect(W / 2 - tw / 2 - 14, 34, (tw + 28) * Math.max(0, quiz.life / 900), 3);
+      ctx.fillRect(W / 2 - tw / 2 - 14, top + 26, (tw + 28) * Math.max(0, quiz.life / 900), 3);
     }
     ctx.textAlign = 'left';
 
@@ -1056,11 +1109,12 @@
     ctx.beginPath();
     ctx.arc(b.x - 18, b.y, 20, 0, Math.PI * 2);
     ctx.fill();
-    // HPバー
+    // HPバー（画面に重ねたスコア表示の下に置く）
+    var barY = hudBottom();
     ctx.fillStyle = '#1e293b';
-    ctx.fillRect(W - 220, 12, 200, 8);
+    ctx.fillRect(W - 220, barY, 200, 8);
     ctx.fillStyle = '#f43f5e';
-    ctx.fillRect(W - 220, 12, 200 * Math.max(0, b.hp / b.maxHp), 8);
+    ctx.fillRect(W - 220, barY, 200 * Math.max(0, b.hp / b.maxHp), 8);
   }
 
   // 動作確認用に内部の様子を見られるようにしておく
@@ -1084,6 +1138,7 @@
       quiz: quiz ? { meaning: quiz.meaning, answer: quiz.answer } : null,
       quizEnemies: enemies ? enemies.filter(function (e) { return e.type === 'word' && e.quiz; }).length : 0,
       quizAnswerOnField: !!(quiz && enemies.some(function (e) { return e.type === 'word' && e.quiz && e.word === quiz.answer; })),
+      w: W, h: H, zoom: zoom,
       px: player ? player.x : 0,
       py: player ? player.y : 0,
       powerIndex: player ? player.powerIndex : 0,
