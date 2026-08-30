@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>例文で覚える英単語</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#c8102e">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="stylesheet" href="style.css">
+  <script>
+    // ===== テーマ（ダークモード）を最初に適用（ちらつき防止） =====
+    (function () {
+      try {
+        var t = localStorage.getItem('reibun-eitango.theme');
+        if (!t) t = (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    })();
+    // Service Worker（オンライン時は常に最新を取得／オフラインでも動く）
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('sw.js').catch(function () {});
+      });
+    }
+  </script>
+</head>
+<body>
+
+<header class="app-header">
+  <h1>例文で覚える英単語</h1>
+  <p class="subtitle">例文300文の重要語／赤シート・カード・4択・自動再生／間隔反復で復習</p>
+</header>
+
+<!-- ===================== ダッシュボード ===================== -->
+<section class="dashboard" id="dashboard">
+  <div class="stat"><span class="stat-num" id="statTotal">0</span><span class="stat-label">解答数</span></div>
+  <div class="stat"><span class="stat-num" id="statCorrect">0</span><span class="stat-label">正解</span></div>
+  <div class="stat"><span class="stat-num" id="statRate">0%</span><span class="stat-label">正答率</span></div>
+  <div class="stat unsure"><span class="stat-num" id="statUnsure">0</span><span class="stat-label">あいまい</span></div>
+  <div class="stat weak"><span class="stat-num" id="statWeak">0</span><span class="stat-label">苦手</span></div>
+  <div class="stat due"><span class="stat-num" id="statDue">0</span><span class="stat-label">今日の復習</span></div>
+  <div class="goal">
+    <div class="total-count" id="totalCount">収録 — 語</div>
+    <div class="goal-bar"><div class="goal-fill" id="goalFill"></div></div>
+    <div class="goal-text" id="goalText">マスターまで あと —</div>
+  </div>
+</section>
+
+<!-- ===================== 出題設定 ===================== -->
+<section class="controls" id="controls">
+  <button class="due-btn hidden" id="dueBtn"></button>
+
+  <div class="control-row">
+    <span class="control-label">出題の向き</span>
+    <div class="btn-group" id="dirGroup">
+      <button class="chip active" data-dir="r">英語 → 日本語</button>
+      <button class="chip" data-dir="w">日本語 → 英語</button>
+    </div>
+    <p class="row-note">向きごとに習熟を別々に記録します（「読んで分かる」と「書ける・言える」は別の力なので）。</p>
+  </div>
+
+  <div class="control-row group-row">
+    <span class="control-label">セクション<br>進捗・範囲</span>
+    <div class="group-panel" id="groupPanel"></div>
+  </div>
+
+  <div class="control-row">
+    <span class="control-label">出題範囲</span>
+    <div class="btn-group" id="poolGroup">
+      <button class="chip active" data-pool="all">全語</button>
+      <button class="chip" data-pool="due">今日の復習</button>
+      <button class="chip" data-pool="weak">苦手・あいまい</button>
+      <button class="chip" data-pool="weakonly">苦手だけ</button>
+      <button class="chip" data-pool="unseen">未出題</button>
+      <button class="chip" data-pool="mastered">マスター済み</button>
+    </div>
+  </div>
+
+  <div class="control-row">
+    <span class="control-label">出題順</span>
+    <div class="btn-group" id="orderGroup">
+      <button class="chip active" data-order="shuffle">ランダム</button>
+      <button class="chip" data-order="seq">番号順</button>
+    </div>
+  </div>
+
+  <div class="control-row">
+    <span class="control-label">1回の問題数</span>
+    <div class="btn-group" id="countGroup">
+      <button class="chip" data-count="10">10問</button>
+      <button class="chip active" data-count="20">20問</button>
+      <button class="chip" data-count="50">50問</button>
+      <button class="chip" data-count="0">全部</button>
+    </div>
+  </div>
+
+  <div class="control-row">
+    <label class="toggle"><input type="checkbox" id="autoSpeak"> 出題時に自動で読み上げる</label>
+  </div>
+
+  <div class="control-row">
+    <span class="control-label">自動再生の速さ</span>
+    <div class="btn-group" id="autoSpeedGroup">
+      <button class="chip" data-sec="2">速い（2秒）</button>
+      <button class="chip active" data-sec="3">標準（3秒）</button>
+      <button class="chip" data-sec="5">ゆっくり（5秒）</button>
+    </div>
+  </div>
+  <div class="control-row">
+    <span class="control-label">自動再生の読み上げ</span>
+    <div class="btn-group" id="autoVoiceGroup">
+      <button class="chip active" data-voice="word">単語だけ</button>
+      <button class="chip" data-voice="full">単語＋意味＋例文</button>
+      <button class="chip" data-voice="off">🔇 音声なし</button>
+    </div>
+    <label class="toggle row-full"><input type="checkbox" id="autoLoop"> 最後まで行ったら繰り返す</label>
+  </div>
+
+  <button class="reward-btn" id="rewardBtn"></button>
+
+  <button class="start-btn" id="startBtn">学習をはじめる（カード）</button>
+  <div class="start-row">
+    <button class="sub-btn" id="autoStartBtn">▶ 自動再生（かけ流し）</button>
+    <button class="sub-btn" id="testStartBtn">✅ 4択テスト</button>
+    <button class="sub-btn" id="openListBtn">📕 単語リスト（赤シート）</button>
+  </div>
+</section>
+
+<!-- ===================== カード（フラッシュカード） ===================== -->
+<section class="quiz hidden" id="quiz">
+  <div class="quiz-top">
+    <button class="home-btn" id="quizHomeBtn">← ホーム</button>
+    <span class="badge" id="qSection">Section 1</span>
+    <span class="badge mode" id="qDir">英→日</span>
+    <span class="auto-indicator" id="autoIndicator">● 自動再生中</span>
+    <span class="progress" id="qProgress">1 / 20</span>
+  </div>
+
+  <p class="prompt" id="qPrompt">意味を思い浮かべてから、答えを見ましょう。</p>
+  <p class="question" id="qQuestion"></p>
+
+  <div class="answer-area" id="answerArea">
+    <div class="quiz-actions">
+      <button class="speak-btn" id="speakBtn">🔊 読み上げ</button>
+      <button class="reveal-btn" id="revealBtn">答えを見る</button>
+    </div>
+  </div>
+
+  <div class="auto-controls" id="autoControls">
+    <button class="stop-btn" id="stopBtn">■ 停止（この単語で止める）</button>
+  </div>
+
+  <div class="reveal hidden" id="revealBox">
+    <div class="reveal-answer">
+      <span class="reveal-label">正解</span>
+      <span class="reveal-word" id="revealWord"></span>
+      <button class="speak-mini" id="speakAnswerBtn">🔊</button>
+    </div>
+    <div class="reveal-sent">
+      <p class="sent-en" id="revealSentEn"></p>
+      <p class="sent-ja" id="revealSentJa"></p>
+    </div>
+    <div class="reveal-others hidden" id="revealOthers"></div>
+    <p class="grade-guide">自己採点してください（履歴に残り、復習日が決まります）</p>
+    <div class="grade-actions">
+      <button class="grade correct" data-grade="correct">◯ 正解</button>
+      <button class="grade unsure" data-grade="unsure">△ あいまい</button>
+      <button class="grade wrong" data-grade="wrong">✕ 苦手</button>
+      <button class="grade skip" data-grade="skip">− カウントしない</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 4択テスト ===================== -->
+<section class="quiz hidden" id="testView">
+  <div class="quiz-top">
+    <button class="home-btn" id="testHomeBtn">← ホーム</button>
+    <span class="badge mode" id="tDir">英→日</span>
+    <span class="progress" id="tProgress">1 / 20</span>
+    <span class="progress" id="tScore">正解 0</span>
+  </div>
+  <div class="quiz-bar"><span id="tBarFill"></span></div>
+
+  <div id="testQuestionArea">
+    <p class="question" id="tQuestion"></p>
+    <button class="speak-btn center" id="tSpeakBtn">🔊 読み上げ</button>
+    <div class="choices" id="tChoices"></div>
+    <div class="reveal hidden" id="tFeedback">
+      <p class="fb-title" id="tFbTitle"></p>
+      <p class="sent-en" id="tSentEn"></p>
+      <p class="sent-ja" id="tSentJa"></p>
+      <button class="start-btn" id="tNextBtn">次の問題へ</button>
+    </div>
+  </div>
+
+  <div id="testResultArea" class="hidden">
+    <h2 class="result-title">結果</h2>
+    <p class="result-score" id="tResultScore"></p>
+    <div class="reward-banner hidden" id="rewardBanner">
+      <p class="rb-title">🎉 ごほうびゲットです！</p>
+      <p class="rb-text" id="rewardBannerText"></p>
+      <button class="start-btn" id="rewardPlayBtn">🎮 ごほうびゲームであそぶ</button>
+    </div>
+    <p class="reward-hint hidden" id="rewardHint"></p>
+    <div id="tResultWrong"></div>
+    <div class="result-actions">
+      <button class="start-btn" id="tRetryBtn">もう一度</button>
+      <button class="sub-btn" id="tRetryWrongBtn">間違いだけ復習</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 単語リスト（赤シート） ===================== -->
+<section class="list-view hidden" id="listView">
+  <div class="list-top">
+    <button class="home-btn" id="listHomeBtn">← ホーム</button>
+    <span class="list-title">単語リスト</span>
+    <span class="list-count" id="listCount"></span>
+  </div>
+  <input class="list-search" id="listSearch" type="search" placeholder="英単語・意味・例文で検索" autocomplete="off">
+  <div class="list-filter">
+    <div class="btn-group" id="listDirGroup">
+      <button class="chip active" data-dir="r">英→日 の区分</button>
+      <button class="chip" data-dir="w">日→英 の区分</button>
+    </div>
+  </div>
+  <div class="list-filter">
+    <div class="btn-group" id="listHideGroup">
+      <button class="chip" data-hide="none">両方表示</button>
+      <button class="chip active" data-hide="meaning">意味を隠す</button>
+      <button class="chip" data-hide="word">英語を隠す</button>
+    </div>
+  </div>
+  <div class="list-filter">
+    <div class="btn-group" id="listStatusGroup">
+      <button class="chip active" data-st="all">すべて</button>
+      <button class="chip" data-st="correct">正解</button>
+      <button class="chip" data-st="unsure">あいまい</button>
+      <button class="chip" data-st="weak">苦手</button>
+      <button class="chip" data-st="new">未</button>
+      <button class="chip" data-st="due">今日の復習</button>
+    </div>
+  </div>
+  <div class="list-filter">
+    <label class="toggle"><input type="checkbox" id="listShowSent"> 例文も表示する</label>
+  </div>
+  <p class="list-note">区分（正解・あいまい・苦手）は<b>向きごとに別々</b>です。上の切り替えで対象が変わります。各語のボタンで変更（もう一度押すと「未」に戻る）。隠れている部分はタップすると表示されます。</p>
+  <div class="list-rows" id="listRows"></div>
+  <button class="list-more hidden" id="listMore">さらに表示</button>
+</section>
+
+<!-- ===================== ごほうびゲーム ===================== -->
+<section class="game-view hidden" id="gameView">
+  <div class="quiz-top">
+    <button class="home-btn" id="gameHomeBtn">← 学習にもどる</button>
+    <span class="badge">🎮 ごほうびゲーム</span>
+    <span class="progress" id="rgTickets"></span>
+  </div>
+
+  <div class="rg-hud">
+    <span>SCORE <b id="rgScore">0</b></span>
+    <span>HI <b id="rgHi">0</b></span>
+    <span>STAGE <b id="rgStage">1</b></span>
+    <span>♥ <b id="rgLives">-</b></span>
+    <span class="rg-meter" id="rgMeter"></span>
+  </div>
+
+  <div class="rg-stage">
+    <canvas id="rgCanvas" width="800" height="450"></canvas>
+    <div class="rg-overlay" id="rgOverlay">
+      <div class="rg-panel">
+        <h2 id="rgTitle">ごほうびゲーム</h2>
+        <p id="rgMessage"></p>
+        <button class="start-btn" id="rgStartBtn">START ▶</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="rg-touch">
+    <div class="rg-pad">
+      <button class="rg-ctrl" data-key="up">▲</button>
+      <div class="rg-pad-row">
+        <button class="rg-ctrl" data-key="left">◀</button>
+        <button class="rg-ctrl" data-key="right">▶</button>
+      </div>
+      <button class="rg-ctrl" data-key="down">▼</button>
+    </div>
+    <div class="rg-buttons">
+      <button class="rg-ctrl rg-fire" data-key="fire">SHOT</button>
+      <button class="rg-ctrl rg-power" data-key="power">POWER</button>
+    </div>
+  </div>
+
+  <p class="hint">矢印キー / WASD で移動、スペース で連射、Z でパワーアップ発動。カプセル <b>C</b> を取るとゲージが進みます。<br>
+    英語の敵は<b>1発当てると日本語に変わり</b>、もう1発でたおせます。<b>おだい</b>に合う単語をたおすと大ボーナス。</p>
+</section>
+
+<!-- ===================== 成績分析 ===================== -->
+<div class="modal-backdrop hidden" id="statsModal">
+  <div class="modal">
+    <h2>成績分析</h2>
+    <p class="hist-caption">マスター＝2回連続で「正解」。正答率＝これまでの自己採点の累計。</p>
+    <div id="statsBody"></div>
+    <div class="modal-actions"><button class="modal-cancel" id="statsClose">閉じる</button></div>
+  </div>
+</div>
+
+<!-- ===================== 学習履歴 ===================== -->
+<div class="modal-backdrop hidden" id="historyModal">
+  <div class="modal">
+    <h2>学習履歴</h2>
+    <div class="hist-summary" id="histSummary"></div>
+    <p class="hist-caption">日ごとの解答数（過去約6か月）　※縦軸＝問数</p>
+    <div class="hist-chart-outer">
+      <div class="hist-yaxis" id="histYAxis"></div>
+      <div class="hist-chart-wrap" id="histChartWrap">
+        <div class="hist-chart-inner">
+          <div class="hist-plot">
+            <div class="hist-grid" id="histGrid"></div>
+            <div class="hist-bars" id="histBars"></div>
+          </div>
+          <div class="hist-months" id="histMonths"></div>
+        </div>
+      </div>
+    </div>
+    <div class="hist-detail" id="histDetail">棒をタップすると、その日の内訳が表示されます。</div>
+    <div class="hist-legend">
+      <span><i class="lg ok"></i>正解</span>
+      <span><i class="lg un"></i>あいまい</span>
+      <span><i class="lg ng"></i>苦手</span>
+      <span><i class="lg sk"></i>カウントしない</span>
+      <span class="lg-note">（自動再生の枚数はタップで表示）</span>
+    </div>
+    <div class="modal-actions"><button class="modal-cancel" id="histClose">閉じる</button></div>
+  </div>
+</div>
+
+<footer class="app-footer">
+  <button class="link-btn" id="themeBtn">🌙 表示切替</button>
+  <button class="link-btn" id="openStatsBtn">📊 成績分析</button>
+  <button class="link-btn" id="openHistoryBtn">📅 学習履歴</button>
+  <button class="link-btn" id="exportBtn">⬆ エクスポート</button>
+  <button class="link-btn" id="importBtn">⬇ インポート</button>
+  <button class="link-btn danger" id="resetBtn">学習履歴をリセット</button>
+  <input type="file" id="importFile" accept="application/json,.json" hidden>
+</footer>
+
+<script src="data.js"></script>
+<script src="game.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
