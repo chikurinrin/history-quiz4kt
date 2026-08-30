@@ -727,7 +727,12 @@ body.game-open .game-view {
   margin: 0;
   border: none;
   border-radius: 0;
-  padding: 8px;
+  /* iPhone はアドレスバーの分だけ見える高さが変わるので、実際の高さ（dvh）に合わせる */
+  height: 100vh;
+  height: 100dvh;
+  /* ノッチやホームバーにかからないようにする */
+  padding: calc(8px + env(safe-area-inset-top)) calc(8px + env(safe-area-inset-right))
+           calc(8px + env(safe-area-inset-bottom)) calc(8px + env(safe-area-inset-left));
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -770,3 +775,17 @@ body.game-open .game-view .hint { margin: 0; text-align: center; }
 }
 .admin-badge .link-btn { color: var(--unsure); text-decoration: underline; }
 body.game-open .admin-badge { display: none !important; }
+
+/* 全画面にできない端末への案内（ゲームのタイトル画面に出す） */
+.rg-note {
+  margin: 12px auto 0;
+  max-width: 420px;
+  background: rgba(224, 139, 0, .18);
+  border: 1px solid rgba(240, 171, 58, .6);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: .74rem !important;
+  line-height: 1.7;
+  color: #fde68a !important;
+}
+.rg-note b { color: #fff !important; }

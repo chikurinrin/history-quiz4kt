@@ -209,6 +209,11 @@
   function isFullscreen() {
     return !!(document.fullscreenElement || document.webkitFullscreenElement);
   }
+  // ホーム画面から起動した状態か（この場合ブラウザのバーが無いので、全画面と同じ見え方）
+  function isStandalone() {
+    if (navigator.standalone === true) return true;
+    return !!(matchMedia && matchMedia('(display-mode: standalone)').matches);
+  }
   function enterFullscreen() {
     if (!fsSupported() || isFullscreen()) return;
     var e = fsElement();
@@ -265,10 +270,19 @@
       '英語をかかげた敵は、<b>1発当てると日本語に変わり</b>、もう1発でたおせます。<br>' +
       '<b>おだい</b>が出たら、その意味に合う単語の敵をたおすと大ボーナス！<br>' +
       '<small>出てくる単語は、あなたが苦手な語・今日の復習の語から選ばれます。' +
-      (touch ? '<br>十字ボタンで動かしたいときは、上の「✋ ボタンを出す」を押してください。' : '') + '</small>');
+      (touch ? '<br>十字ボタンで動かしたいときは、上の「✋ ボタンを出す」を押してください。' : '') +
+      '</small>' + fullscreenNote());
     showRotateHint();
     drawFrame();
     loop();
+  }
+
+  // 全画面にできない端末（iPhone の Safari など）では、代わりの方法を伝える
+  function fullscreenNote() {
+    if (fsSupported() || isStandalone()) return '';
+    return '<p class="rg-note">この端末（iPhone の Safari など）は、ブラウザの全画面表示に対応していません。<br>' +
+      '共有ボタンから <b>「ホーム画面に追加」</b> して、そこから開くと<br>' +
+      'アドレスバーが消えて<b>全画面と同じ大きさ</b>であそべます。</p>';
   }
 
   function close() {
