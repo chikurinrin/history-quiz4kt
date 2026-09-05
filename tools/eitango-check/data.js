@@ -1,6 +1,6 @@
-// 英単語確認アプリ 単語データ
-// 各例文から重要な英単語・熟語を抽出。words: [英単語, 日本語の意味] の配列。
-// en / ja は例文（正解表示時に提示）。
+// 例文で覚える英単語 単語データ
+// SENTENCES: 例文300文と、そこから抽出した重要語（words: [英単語, 日本語の意味]）。
+// 下部で単語をユニーク化し、通し番号つきの WORD_LIST / SECTIONS を組み立てる。
 
 const SENTENCES = [
   { id: 1, en: `That cute reporter is from Canada.`, ja: `あのかわいいレポーターは、カナダ出身だ。`, words: [["that", "あの"], ["cute", "かわいい"], ["reporter", "レポーター・記者"], ["from", "～から・出身"], ["Canada", "カナダ"]] },
@@ -305,27 +305,58 @@ const SENTENCES = [
   { id: 300, en: `The owner doesn't allow the captain to reply in his rude way.`, ja: `オーナーは船長に、失礼な態度で返事をすることを許さない。`, words: [["owner", "オーナー"], ["allow A to", "Aが～するのを許す"], ["captain", "船長"], ["reply", "返事をする"], ["rude", "失礼な"], ["way", "態度・方法"]] },
 ];
 
-// 全単語をフラットなリストに展開（例文情報を保持）
-// key: 永続化（学習記録）用の一意キー
-const WORDS = (() => {
-  const list = [];
+
+// ===== 単語をユニーク化して通し番号を振る =====
+// 同じ語が複数の例文に出る場合は、最初に出た例文を代表として採用し、
+// 2つ目以降の例文は otherExamples に貯めておく（詳細表示で使う）。
+// key は学習記録の永続化キー。単語の綴り（小文字）をそのまま使うため、
+// データを増やしても既存の記録は保持される。
+const WORD_LIST = (() => {
+  const byKey = new Map();
   for (const s of SENTENCES) {
     for (const [en, ja] of s.words) {
-      list.push({ key: s.id + "|" + en, word: en, meaning: ja, sentEn: s.en, sentJa: s.ja, sentId: s.id, setIndex: 0 });
+      const key = en.toLowerCase();
+      const existing = byKey.get(key);
+      if (existing) {
+        // 意味が違う場合だけ補助的な訳として追加する
+        if (!existing.meanings.includes(ja)) existing.meanings.push(ja);
+        existing.otherExamples.push({ en: s.en, ja: s.ja, id: s.id });
+        continue;
+      }
+      byKey.set(key, {
+        key,
+        word: en,
+        meanings: [ja],
+        sentEn: s.en,
+        sentJa: s.ja,
+        sentId: s.id,
+        otherExamples: [],
+      });
     }
   }
+  const list = [...byKey.values()];
+  list.forEach((w, i) => {
+    w.no = i + 1;                       // 通し番号（一覧やカードに出す番号）
+    w.meaning = w.meanings.join("／");   // 一覧に出す代表訳
+  });
   return list;
 })();
 
-// 100語ごとにセットへ分割
-const SET_SIZE = 100;
-const SETS = (() => {
-  const sets = [];
-  for (let i = 0; i < WORDS.length; i += SET_SIZE) {
-    sets.push(WORDS.slice(i, i + SET_SIZE));
+// ===== 100語ごとのセクションに分割 =====
+const SECTION_SIZE = 100;
+const SECTIONS = (() => {
+  const sections = [];
+  for (let i = 0; i < WORD_LIST.length; i += SECTION_SIZE) {
+    const words = WORD_LIST.slice(i, i + SECTION_SIZE);
+    sections.push({
+      index: sections.length,
+      title: `Section ${sections.length + 1}`,
+      range: `${words[0].no} - ${words[words.length - 1].no}`,
+      words,
+    });
   }
-  return sets;
+  return sections;
 })();
 
-// 各単語に所属セット番号を付与（SETS は WORDS の参照スライスなので同一オブジェクトを更新）
-SETS.forEach((set, i) => set.forEach((w) => { w.setIndex = i; }));
+// 各単語に所属セクション番号を付与（SECTIONS は WORD_LIST の参照スライス）
+SECTIONS.forEach((sec) => sec.words.forEach((w) => { w.section = sec.index; }));
