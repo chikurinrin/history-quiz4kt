@@ -44,6 +44,12 @@ function unitOfQ(q) { return subOf(q.sub).unit; }
 function unitName(uid) { return UNITS.find((u) => u.id === uid).name; }
 function questionsOfUnit(uid) { return QUESTIONS.filter((q) => unitOfQ(q) === uid); }
 
+/* 例文のブロック。改行はそのまま改行として見せる */
+function exBlock(text, label) {
+  if (!text) return '';
+  return `<div class="ex-box"><div class="ex-label">${esc(label)}</div><div class="ex-text">${esc(text)}</div></div>`;
+}
+
 /* 記述解答の表記ゆれをならす */
 function normalize(s) {
   return String(s)
@@ -224,6 +230,7 @@ function renderQuestion() {
   $('quiz-area').innerHTML = `<div class="q-card">
     <div class="q-sub">${esc(subOf(q.sub).name)}${typeTag}</div>
     <div class="q-text">${esc(q.q)}</div>
+    ${exBlock(PRE_EXAMPLES[q.id], '例文')}
     <div id="q-body">${body}</div>
     <div id="q-judge"></div>
   </div>`;
@@ -292,6 +299,7 @@ function showJudge(q, correct, answerText, allowSelfOk) {
       <div>答え：<span class="ans">${esc(answerText)}</span></div>
       ${q.type === 'input' ? okAlt : ''}
       <div class="note">${esc(q.note || '')}</div>
+      ${exBlock(EXAMPLES[q.id], '例文で確認')}
     </div>
     <div class="self-btns">${btns}</div>
     <div class="next-row"><button class="btn btn-primary" id="btn-next">${state.idx + 1 < state.queue.length ? '次の問題へ →' : '結果を見る →'}</button></div>`;
@@ -345,6 +353,7 @@ function renderResult() {
           <div class="wi-q">${esc(q.q)}</div>
           <div class="wi-a">答え：${esc(ans)}</div>
           <div class="wi-n">${esc(q.note || '')}</div>
+          ${exBlock(EXAMPLES[q.id], '例文で確認')}
         </div>`;
       }).join('')
     : `<div class="empty-note">見直しが必要な問題はありません。</div>`;
