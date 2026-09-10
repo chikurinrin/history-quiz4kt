@@ -3,6 +3,7 @@
    ============================================================ */
 
 const STORAGE_KEY = 'kokugo_chukan_progress_v1';
+const SETTINGS_KEY = 'kokugo_chukan_settings_v1';
 
 const UNIT_COLOR = { shi: 'var(--u-shi)', tanka: 'var(--u-tanka)', keigo: 'var(--u-keigo)' };
 
@@ -13,6 +14,8 @@ const state = {
   badge: '',
   session: {},                // このセッションの結果 { [qid]: 'ok'|'ng'|'un' }
   answered: false,
+  hintUsed: false,            // その問題で4択のヒントを見たか
+  settings: loadSettings(),
   hiddenCols: { sonkei: false, kenjo: false },
 };
 
@@ -24,6 +27,15 @@ function loadProgress() {
 function saveProgress() {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.progress)); }
   catch (e) { /* 保存できない設定でも学習は続けられる */ }
+}
+function loadSettings() {
+  const def = { quickChoice: false };
+  try { return Object.assign(def, JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}')); }
+  catch (e) { return def; }
+}
+function saveSettings() {
+  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings)); }
+  catch (e) { /* 保存できなくても動作に支障はない */ }
 }
 
 /* ── 小道具 ─────────────────────────────── */
@@ -103,6 +115,7 @@ function renderHeader() {
 ══════════════════════════════════════════ */
 function renderHome() {
   renderHeader();
+  $('opt-quick').checked = !!state.settings.quickChoice;
 
   const all = tally(QUESTIONS);
   $('overall-done').textContent = all.ok;
@@ -203,28 +216,37 @@ function weakList(includeUnsure) {
   });
 }
 
+function answerTextOf(q) { return q.type === 'choice' ? q.c[0] : q.a; }
+
 function renderQuestion() {
   const q = state.queue[state.idx];
   state.answered = false;
+  state.hintUsed = false;
+  state._opts = null;
 
   $('quiz-badge').textContent = state.badge;
   $('quiz-count').textContent = `${state.idx + 1} / ${state.queue.length} 問`;
   $('quiz-prog-fill').style.width = ((state.idx) / state.queue.length) * 100 + '%';
 
-  const typeTag = q.type === 'input' ? '<span class="q-type-tag">記述</span>' : '<span class="q-type-tag">選択</span>';
-  let body;
-  if (q.type === 'choice') {
-    const opts = shuffle(q.c.map((text, i) => ({ text, correct: i === 0 })));
-    state._opts = opts;
-    body = `<div class="choices">${opts.map((o, i) =>
-      `<button class="choice" data-i="${i}"><span class="ch-mark">${i + 1}</span><span>${esc(o.text)}</span></button>`
-    ).join('')}</div>`;
-  } else {
-    body = `<div class="input-row">
+  // 「最初から4択を出す」設定のときだけ、選択問題は昔どおりすぐ選択肢を出す
+  const quick = state.settings.quickChoice && q.type === 'choice';
+  const typeTag = q.type === 'input' ? '<span class="q-type-tag">記述</span>' : '<span class="q-type-tag">用語</span>';
+
+  let body = '';
+  if (q.type === 'input') {
+    body += `<div class="input-row">
       <input type="text" id="ans-input" autocomplete="off" autocapitalize="off" placeholder="答えを入力">
       <button id="ans-submit">答える</button>
     </div>
-    <div class="input-hint">ひらがな・漢字どちらでもかまいません。「わからない」ときは空欄のまま「答える」を押してください。</div>`;
+    <div class="input-hint">ひらがな・漢字どちらでもかまいません。</div>`;
+  } else if (!quick) {
+    body += `<div class="recall-note">まず自分で答えを思いうかべてから、下のボタンを押そう。</div>`;
+  }
+  if (!quick) {
+    body += `<div class="recall-row">
+      <button class="btn btn-outline hint-btn" id="btn-hint">💡 4択のヒントを見る</button>
+      ${q.type === 'choice' ? `<button class="btn btn-outline" id="btn-reveal">答えを見る</button>` : ''}
+    </div>`;
   }
 
   $('quiz-area').innerHTML = `<div class="q-card">
@@ -232,19 +254,108 @@ function renderQuestion() {
     <div class="q-text">${esc(q.q)}</div>
     ${exBlock(PRE_EXAMPLES[q.id], '例文')}
     <div id="q-body">${body}</div>
+    <div id="q-choices"></div>
     <div id="q-judge"></div>
   </div>`;
 
-  if (q.type === 'choice') {
-    document.querySelectorAll('.choice').forEach((b) => {
-      b.onclick = () => answerChoice(parseInt(b.dataset.i, 10));
-    });
-  } else {
+  if (q.type === 'input') {
     const inp = $('ans-input');
     inp.focus();
     inp.onkeydown = (e) => { if (e.key === 'Enter') answerInput(); };
     $('ans-submit').onclick = answerInput;
   }
+  if (quick) {
+    renderChoices(q, false);
+  } else {
+    $('btn-hint').onclick = showHint;
+    if (q.type === 'choice') $('btn-reveal').onclick = revealAnswer;
+  }
+}
+
+/* 4択のヒントを出す。記述問題の選択肢は、同じ分野の答えから作る */
+function showHint() {
+  if (state.answered || state.hintUsed) return;
+  state.hintUsed = true;
+  $('btn-hint').disabled = true;
+  $('btn-hint').textContent = '💡 ヒント表示中';
+  renderChoices(state.queue[state.idx], true);
+}
+
+function renderChoices(q, isHint) {
+  const texts = q.type === 'choice' ? q.c : buildHintOptions(q);
+  const correctText = answerTextOf(q);
+  const opts = shuffle(texts.map((t) => ({ text: t, correct: t === correctText })));
+  state._opts = opts;
+
+  $('q-choices').innerHTML =
+    (isHint ? `<div class="hint-label">ヒント　この中に答えがあります（ヒントつきの正解は「あいまい」として記録します）</div>` : '') +
+    `<div class="choices">${opts.map((o, i) =>
+      `<button class="choice" data-i="${i}"><span class="ch-mark">${i + 1}</span><span>${esc(o.text)}</span></button>`
+    ).join('')}</div>`;
+
+  document.querySelectorAll('.choice').forEach((b) => {
+    b.onclick = () => answerChoice(parseInt(b.dataset.i, 10));
+  });
+}
+
+/* 記述問題のヒント用に、まぎらわしい選択肢を3つ選ぶ */
+function buildHintOptions(q) {
+  const ansText = answerTextOf(q);
+  // 手で用意したまぎらわしい選択肢があれば、それを使う
+  if (HINTS[q.id] && HINTS[q.id].length >= 3) {
+    return [ansText].concat(HINTS[q.id].slice(0, 3));
+  }
+  const acc = acceptSet(q);
+  const seen = new Set([normalize(ansText)]);
+  const cands = [];
+
+  QUESTIONS.forEach((x) => {
+    if (x.id === q.id) return;
+    // 同じ小分類 → 同じ分野 → それ以外、の順で優先する
+    let rank;
+    if (x.sub === q.sub) rank = 0;
+    else if (unitOfQ(x) === unitOfQ(q)) rank = 1;
+    else rank = 2;
+    const t = answerTextOf(x);
+    const n = normalize(t);
+    if (!n || seen.has(n) || acc.has(n)) return;   // 答えと同じ意味のものは選択肢にしない
+    seen.add(n);
+    cands.push({ text: t, rank: rank, diff: Math.abs(t.length - ansText.length) });
+  });
+
+  cands.sort((a, b) => (a.rank - b.rank) || (a.diff - b.diff));
+  const near = cands.slice(0, 8).map((c) => c.text);
+  return [ansText].concat(shuffle(near).slice(0, 3));
+}
+
+/* 選択問題で「答えを見る」＝自己採点にする */
+function revealAnswer() {
+  if (state.answered) return;
+  state.answered = true;
+  const q = state.queue[state.idx];
+  $('q-body').innerHTML = '';
+  $('q-choices').innerHTML = '';
+  showSelfJudge(q);
+}
+
+function showSelfJudge(q) {
+  $('q-judge').innerHTML = `
+    <div class="judge reveal">
+      <div class="judge-head">答え</div>
+      <div>答え：<span class="ans">${esc(answerTextOf(q))}</span></div>
+      <div class="note">${esc(q.note || '')}</div>
+      ${exBlock(EXAMPLES[q.id], '例文で確認')}
+    </div>
+    <div class="self-ask">自分の答えと合っていましたか？</div>
+    <div class="self-btns">
+      <button class="btn btn-primary" id="btn-know">○　わかっていた</button>
+      <button class="btn btn-secondary" id="btn-unsure">△　あいまいだった</button>
+      <button class="btn btn-outline" id="btn-notknow">×　わからなかった</button>
+    </div>`;
+  // ヒントを見たあとの「わかっていた」は、あいまいとして記録する
+  $('btn-know').onclick = () => { record(q, state.hintUsed ? 'un' : 'ok'); nextQuestion(); };
+  $('btn-unsure').onclick = () => { record(q, 'un'); nextQuestion(); };
+  $('btn-notknow').onclick = () => { record(q, 'ng'); nextQuestion(); };
 }
 
 function answerChoice(i) {
@@ -259,8 +370,11 @@ function answerChoice(i) {
     if (opts[bi].correct) { b.classList.add('correct'); b.querySelector('.ch-mark').textContent = '○'; }
     else if (bi === i) { b.classList.add('wrong'); b.querySelector('.ch-mark').textContent = '×'; }
   });
+  const hintBtn = $('btn-hint');
+  if (hintBtn) hintBtn.disabled = true;
 
-  record(q, correct ? 'ok' : 'ng');
+  // ヒントを見て当てた場合は「あいまい」として記録する
+  record(q, correct ? (state.hintUsed ? 'un' : 'ok') : 'ng');
   showJudge(q, correct, opts.find((o) => o.correct).text, false);
 }
 
@@ -273,8 +387,11 @@ function answerInput() {
 
   $('ans-input').disabled = true;
   $('ans-submit').disabled = true;
+  const hintBtn = $('btn-hint');
+  if (hintBtn) hintBtn.disabled = true;
+  document.querySelectorAll('.choice').forEach((b) => { b.disabled = true; });
 
-  record(q, correct ? 'ok' : 'ng');
+  record(q, correct ? (state.hintUsed ? 'un' : 'ok') : 'ng');
   showJudge(q, correct, q.a, !correct);
 }
 
@@ -295,7 +412,7 @@ function showJudge(q, correct, answerText, allowSelfOk) {
 
   $('q-judge').innerHTML = `
     <div class="judge ${correct ? 'ok' : 'ng'}">
-      <div class="judge-head">${correct ? '○　正解' : '×　まちがい'}</div>
+      <div class="judge-head">${correct ? '○　正解' : '×　まちがい'}${correct && state.hintUsed ? '<span class="hint-flag">ヒントつき → あいまいとして記録</span>' : ''}</div>
       <div>答え：<span class="ans">${esc(answerText)}</span></div>
       ${q.type === 'input' ? okAlt : ''}
       <div class="note">${esc(q.note || '')}</div>
@@ -428,6 +545,7 @@ $('btn-weak-all').onclick = () => {
   if (!l.length) { alert('まちがえた問題・あいまいな問題はありません。'); return; }
   startQuiz(shuffle(l), `弱点の復習（${l.length}問）`);
 };
+$('opt-quick').onchange = (e) => { state.settings.quickChoice = e.target.checked; saveSettings(); };
 $('btn-table').onclick = () => { renderKeigoTable(); show('table'); };
 $('btn-sheet').onclick = () => { renderSheet(); show('sheet'); };
 $('btn-reset').onclick = () => {
