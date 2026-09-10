@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>中3国語 中間テスト対策｜詩・短歌・敬語</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<header>
+  <div class="header-inner">
+    <div class="header-title">
+      中3国語　2学期中間テスト対策
+      <small>詩の知識・短歌の知識・敬語</small>
+    </div>
+    <div class="header-stats">
+      <div class="hstat ok"><div class="hstat-n" id="hstat-ok">0</div><div class="hstat-l">正解</div></div>
+      <div class="hstat ng"><div class="hstat-n" id="hstat-ng">0</div><div class="hstat-l">不正解</div></div>
+      <div class="hstat un"><div class="hstat-n" id="hstat-un">0</div><div class="hstat-l">あいまい</div></div>
+    </div>
+  </div>
+</header>
+
+<!-- ══════════ SCREEN: HOME ══════════ -->
+<div id="screen-home" class="screen active">
+  <main>
+    <div class="home-hero">
+      <h2>テスト範囲を、まるごと確認</h2>
+      <p>国語便覧 p.178-179／p.190-191／p.270-271</p>
+      <div class="overall-bar">
+        <div class="overall-bar-label">
+          <span>マスター状況</span>
+          <span><span id="overall-done">0</span> / <span id="overall-total">0</span> 問　<span id="overall-pct">0%</span></span>
+        </div>
+        <div class="bar-track"><div class="bar-fill" id="overall-bar" style="width:0%"></div></div>
+      </div>
+    </div>
+
+    <div class="section-title">まず、ここから</div>
+    <div class="mode-btns">
+      <button class="mode-btn wide" id="btn-mock">
+        <span class="btn-icon">📝</span>
+        実力チェック（3分野から30問）
+        <br><small>本番のつもりで一気に解く。弱点が見つかる</small>
+      </button>
+      <button class="mode-btn" id="btn-weak-ng">
+        <span class="btn-icon">🔥</span>
+        まちがえた問題だけ
+      </button>
+      <button class="mode-btn" id="btn-weak-all">
+        <span class="btn-icon">⚡</span>
+        まちがえた＋あいまい
+      </button>
+    </div>
+
+    <div class="section-title">分野から選ぶ</div>
+    <div class="unit-grid" id="unit-grid"></div>
+
+    <div class="section-title">小分類から選ぶ</div>
+    <div class="sub-list" id="sub-list"></div>
+
+    <div class="section-title">覚えるための道具</div>
+    <div class="mode-btns">
+      <button class="mode-btn" id="btn-table">
+        <span class="btn-icon">📋</span>
+        敬語動詞 一覧表
+        <br><small>かくして暗記できる</small>
+      </button>
+      <button class="mode-btn" id="btn-sheet">
+        <span class="btn-icon">📚</span>
+        要点シート
+        <br><small>テスト前の最終確認</small>
+      </button>
+    </div>
+
+    <div class="section-title">分野別の成績</div>
+    <div class="stats-chart" id="stats-chart"></div>
+
+    <div class="spacer"></div>
+    <button class="btn btn-outline danger" id="btn-reset">学習記録をすべて消す</button>
+    <p class="foot-note">学習記録はこのブラウザの中だけに保存されます（サーバーには送られません）。</p>
+  </main>
+</div>
+
+<!-- ══════════ SCREEN: QUIZ ══════════ -->
+<div id="screen-quiz" class="screen">
+  <main>
+    <div class="quiz-header">
+      <div class="quiz-meta">
+        <button class="back-btn" id="quiz-back-btn">← ホームへ</button>
+        <span class="quiz-unit-badge" id="quiz-badge"></span>
+        <span class="quiz-count" id="quiz-count"></span>
+      </div>
+      <div class="quiz-progress"><div class="quiz-progress-fill" id="quiz-prog-fill" style="width:0%"></div></div>
+    </div>
+    <div id="quiz-area"></div>
+  </main>
+</div>
+
+<!-- ══════════ SCREEN: RESULT ══════════ -->
+<div id="screen-result" class="screen">
+  <main>
+    <div class="result-hero">
+      <div class="result-pct"><span id="res-pct">0</span><span class="result-pct-unit">%</span></div>
+      <div class="result-msg" id="res-msg"></div>
+      <div class="result-sub" id="res-sub"></div>
+    </div>
+    <div class="result-grid">
+      <div class="result-stat rs-ok"><div class="result-stat-n" id="res-ok">0</div><div class="result-stat-l">正解</div></div>
+      <div class="result-stat rs-ng"><div class="result-stat-n" id="res-ng">0</div><div class="result-stat-l">不正解</div></div>
+      <div class="result-stat rs-un"><div class="result-stat-n" id="res-un">0</div><div class="result-stat-l">あいまい</div></div>
+    </div>
+
+    <div class="section-title" id="wrong-title">もう一度見ておきたい問題</div>
+    <div class="wrong-list" id="wrong-list"></div>
+
+    <div class="spacer"></div>
+    <button class="btn btn-primary" id="res-retry-ng">🔥 まちがえた問題だけやり直す</button>
+    <div class="spacer"></div>
+    <button class="btn btn-secondary" id="res-retry-all">⚡ まちがえた＋あいまいをやり直す</button>
+    <div class="spacer"></div>
+    <button class="btn btn-outline" id="res-home-btn">ホームに戻る</button>
+  </main>
+</div>
+
+<!-- ══════════ SCREEN: 敬語動詞一覧表 ══════════ -->
+<div id="screen-table" class="screen">
+  <main>
+    <div class="quiz-meta">
+      <button class="back-btn" id="table-back-btn">← ホームへ</button>
+      <span class="quiz-unit-badge">敬語動詞一覧表</span>
+    </div>
+    <p class="lead">列の見出しを押すと、その列をかくせます。かくした列のマスを押すと、その一つだけ答えが見えます。</p>
+    <div class="table-wrap">
+      <table class="keigo-table" id="keigo-table">
+        <thead>
+          <tr>
+            <th class="col-head" data-col="sonkei">尊敬語 <span class="eye" id="eye-sonkei">👁</span></th>
+            <th class="col-head normal-head">普通の表現</th>
+            <th class="col-head" data-col="kenjo">謙譲語 <span class="eye" id="eye-kenjo">👁</span></th>
+          </tr>
+        </thead>
+        <tbody id="keigo-tbody"></tbody>
+      </table>
+    </div>
+    <p class="foot-note">「—」は一覧表に対応する語が示されていないところです。</p>
+    <div class="spacer"></div>
+    <button class="btn btn-primary" id="table-quiz-btn">この表からテストする</button>
+  </main>
+</div>
+
+<!-- ══════════ SCREEN: 要点シート ══════════ -->
+<div id="screen-sheet" class="screen">
+  <main>
+    <div class="quiz-meta">
+      <button class="back-btn" id="sheet-back-btn">← ホームへ</button>
+      <span class="quiz-unit-badge">要点シート</span>
+    </div>
+    <div class="sheet-tabs" id="sheet-tabs"></div>
+    <div id="sheet-body"></div>
+  </main>
+</div>
+
+<script src="data.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
