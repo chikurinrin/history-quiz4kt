@@ -1040,3 +1040,66 @@ body.quiz-active { padding-bottom: 12px; }
     box-shadow: 0 -6px 24px rgba(15, 23, 42, .22);
   }
 }
+
+/* =====================================================
+   印刷（A4）
+   画面では紙面を隠し、印刷のときだけアプリのUIと入れ替える。
+   紙面の中身は script.js の buildPrintSheet() が組み立てる。
+   ===================================================== */
+.print-sheet { display: none; }
+
+@media print {
+  @page { size: A4 portrait; margin: 14mm 11mm 15mm; }
+
+  /* 画面用のUIは一切刷らない */
+  body > *:not(.print-sheet) { display: none !important; }
+
+  /* ダークモードのままでも紙は白地・黒字にする */
+  html, body {
+    background: #fff !important;
+    color: #000 !important;
+    font-size: 10.5pt;
+    line-height: 1.5;
+  }
+  .print-sheet { display: block; color: #000; }
+
+  /* 見出し（区分・向き・日付・語数・絞り込み条件） */
+  .ps-head {
+    overflow: hidden;            /* 名前欄の float を囲む */
+    border-bottom: 1.6pt solid #000;
+    padding-bottom: 2mm;
+    margin-bottom: 4mm;
+  }
+  .ps-title { font-size: 15pt; font-weight: 700; margin: 0; }
+  .ps-meta { font-size: 9pt; margin: 1mm 0 0; }
+  .ps-meta span + span::before { content: '｜'; padding: 0 .4em; }
+  .ps-name { float: right; font-size: 9pt; border-bottom: .6pt solid #000; min-width: 45mm; }
+  .ps-note { font-size: 8.5pt; margin: 1.5mm 0 0; }
+
+  /* 本文は2段組。項目が段や紙をまたいで割れないようにする */
+  .ps-body { column-count: 2; column-gap: 7mm; column-rule: .4pt solid #bbb; }
+  .ps-item { break-inside: avoid; page-break-inside: avoid; margin: 0 0 2.2mm; }
+
+  .ps-no { display: inline-block; min-width: 7mm; font-size: 9pt; }
+  .ps-q { font-weight: 700; }
+
+  /* テスト形式：解答欄 */
+  .ps-item.test { display: flex; align-items: flex-end; gap: 2mm; padding-bottom: .6mm; }
+  .ps-item.test .ps-q { white-space: nowrap; }
+  .ps-blank { flex: 1; border-bottom: .5pt solid #444; min-height: 6mm; }
+  .ps-item.test.writing .ps-blank { min-height: 9mm; border-bottom-width: .8pt; }
+
+  /* 暗記リスト */
+  .ps-item.memo { padding-bottom: 1.2mm; border-bottom: .3pt dotted #bbb; }
+  .ps-read { font-size: 9.5pt; }
+  .ps-lv { font-size: 8pt; border: .4pt solid #666; border-radius: 2pt; padding: 0 .4em; margin-left: .4em; }
+  .ps-line { font-size: 9pt; margin: .4mm 0 0; padding-left: 7mm; }
+  .ps-label { font-weight: 700; margin-right: .4em; }
+  .ps-target { text-decoration: underline; font-weight: 700; }
+
+  /* 解答（最終ページ） */
+  .ps-answers { break-before: page; page-break-before: always; }
+  .ps-answers h2 { font-size: 12pt; margin: 0 0 2mm; border-bottom: 1pt solid #000; }
+  .ps-ans-list { column-count: 3; column-gap: 6mm; font-size: 9.5pt; }
+  .ps-ans { break-inside: avoid; margin-bottom: 1mm; }
+}

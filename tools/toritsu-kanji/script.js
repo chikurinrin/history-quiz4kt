@@ -850,24 +850,38 @@
     return html;
   }
 
-  function renderList() {
+  // 区分の絞り込み。'review' は「苦手＋不安」をまとめて拾う。
+  function matchesStatusFilter(st) {
+    if (listFilter.status === 'all') return true;
+    if (listFilter.status === 'review') return st === 'weak' || st === 'unsure';
+    return st === listFilter.status;
+  }
+
+  // 一覧の絞り込みを通った語を返す。画面の描画と印刷で同じ結果を使う。
+  function filteredItems() {
     var q = listFilter.q;
     var mode = listMode();
-    var html = '', count = 0;
+    var out = [];
     allQuestions.forEach(function (item) {
       if (listFilter.level !== 'all' && item.level !== listFilter.level) return;
       var st = statusOf(keyOf(item.id, mode));
-      if (listFilter.status !== 'all' && st !== listFilter.status) return;
+      if (!matchesStatusFilter(st)) return;
       if (listFilter.pri !== 'all') {
         var p = priorityOf(item.word, item.level);
         if (p === null || String(p) !== listFilter.pri) return;
       }
       if (q && item.word.indexOf(q) === -1 && item.reading.indexOf(q) === -1) return;
-      count++;
-      html += listRowHtml(item, st);
+      out.push({ q: item, st: st });
     });
+    return out;
+  }
+
+  function renderList() {
+    var items = filteredItems();
+    var html = '';
+    items.forEach(function (it) { html += listRowHtml(it.q, it.st); });
     $('listRows').innerHTML = html || '<div class="list-empty">該当する語がありません。</div>';
-    $('listCount').textContent = count + ' 語';
+    $('listCount').textContent = items.length + ' 語';
   }
 
   function openList() {
@@ -880,6 +894,8 @@
     document.body.classList.remove('list-active');
     $('listView').classList.add('hidden');
     el.controls.classList.remove('hidden');
+    // Safari は afterprint を発火しないので、ここでも紙面を片づける
+    $('printSheet').innerHTML = '';
     updateDashboard();
   }
 
@@ -934,11 +950,142 @@
       x.classList.toggle('active', SET_TO_STATUS[x.getAttribute('data-set')] === st);
     });
     // 区分で絞り込み中に、その区分から外れた行は消す
-    if (listFilter.status !== 'all' && st !== listFilter.status && row.parentNode) {
+    if (!matchesStatusFilter(st) && row.parentNode) {
       row.parentNode.removeChild(row);
     }
     $('listCount').textContent = $('listRows').querySelectorAll('.lrow').length + ' 語';
   }
+
+  // =====================================================
+  // 印刷（A4）
+  //  一覧の絞り込みで残った語を、そのまま紙面に組み直す。
+  //   test = 問題＋解答欄（解答は最終ページ）／ memo = 答え付きの暗記リスト
+  //  向き（漢字→読み／読み→漢字）が、そのまま読みの問題／書きの問題になる。
+  // =====================================================
+  // 'new' は予約語なので引用符で囲む（古い処理系対策）
+  var STATUS_TITLE = {
+    'all': '漢字リスト', 'correct': '正解した漢字', 'unsure': '不安な漢字',
+    'weak': '苦手な漢字', 'review': '苦手・不安な漢字', 'new': '未学習の漢字'
+  };
+  var PER_PAGE = { test: 76, memo: 40 };   // A4・2段組でのおおよその収録数
+
+  // テストとして出せない語を落とす。
+  // 書きは、答えの漢字が無い語（慣用句・かな語）と、読み専用の準1級を除く
+  // （準1級は、その級だけを選んでいるときは本人の意図とみなして残す）。
+  function printableForTest(q, writing) {
+    if (!writing) return !!q.reading;
+    if (q.noWrite || q.vocabOnly) return false;
+    if (q.level === '準1級' && listFilter.level !== '準1級') return false;
+    return !!q.word;
+  }
+
+  function printHeadHtml(kind, shown, dropped) {
+    var writing = listMode() === 'writing';
+    var meta = [
+      '<span>' + (kind === 'test' ? 'テスト形式' : '暗記リスト') + '</span>',
+      '<span>' + shown + ' 語</span>',
+      '<span>' + (listFilter.level === 'all' ? '全級' : escapeHtml(listFilter.level)) + '</span>'
+    ];
+    if (listFilter.pri !== 'all') meta.push('<span>優先度★' + escapeHtml(listFilter.pri) + '</span>');
+    if (listFilter.q) meta.push('<span>検索「' + escapeHtml(listFilter.q) + '」</span>');
+    meta.push('<span>' + todayKey() + '</span>');
+
+    var html = '<div class="ps-head">' +
+      (kind === 'test' ? '<div class="ps-name">名前</div>' : '') +
+      '<h1 class="ps-title">' +
+        escapeHtml(STATUS_TITLE[listFilter.status] || '漢字リスト') +
+        '（' + (writing ? '書き' : '読み') + '）' +
+      '</h1>' +
+      '<p class="ps-meta">' + meta.join('') + '</p>';
+    if (dropped > 0) {
+      html += '<p class="ps-note">※ 書きで出題できない語（慣用句・かな語・表外字）' + dropped + ' 語は除いています。</p>';
+    }
+    return html + '</div>';
+  }
+
+  function printTestHtml(items) {
+    var writing = listMode() === 'writing';
+    var body = '', ans = '';
+    items.forEach(function (it, i) {
+      var q = it.q, n = i + 1;
+      body += '<div class="ps-item test' + (writing ? ' writing' : '') + '">' +
+                '<span class="ps-no">' + n + '</span>' +
+                '<span class="ps-q">' + escapeHtml(writing ? q.reading : q.word) + '</span>' +
+                '<span class="ps-blank"></span>' +
+              '</div>';
+      ans += '<div class="ps-ans"><span class="ps-no">' + n + '</span>' +
+             escapeHtml(writing ? q.word : q.reading) + '</div>';
+    });
+    return '<div class="ps-body">' + body + '</div>' +
+           '<section class="ps-answers"><h2>解答</h2>' +
+           '<div class="ps-ans-list">' + ans + '</div></section>';
+  }
+
+  function printMemoHtml(items) {
+    var body = '';
+    items.forEach(function (it, i) {
+      var q = it.q;
+      var meaning = q.meaning || (window.WORD_MEANINGS || {})[q.word] || '';
+      var sent = escapeHtml(q.sentence).replace(/\{([^}]*)\}/, '<span class="ps-target">$1</span>');
+      var html = '<div class="ps-item memo">' +
+        '<div><span class="ps-no">' + (i + 1) + '</span>' +
+        '<span class="ps-q">' + escapeHtml(q.word) + '</span>' +
+        (q.reading ? '<span class="ps-read">【' + escapeHtml(q.reading) + '】</span>' : '') +
+        '<span class="ps-lv">' + escapeHtml(q.level) + '</span></div>';
+      if (meaning) html += '<p class="ps-line"><span class="ps-label">意味</span>' + escapeHtml(meaning) + '</p>';
+      html += '<p class="ps-line"><span class="ps-label">例文</span>' + sent + '</p>';
+      if (q.hint) html += '<p class="ps-line"><span class="ps-label">覚え方</span>' + escapeHtml(q.hint) + '</p>';
+      body += html + '</div>';
+    });
+    return '<div class="ps-body">' + body + '</div>';
+  }
+
+  function printList(kind) {
+    var writing = listMode() === 'writing';
+    var all = filteredItems();
+    var items = kind === 'test'
+      ? all.filter(function (it) { return printableForTest(it.q, writing); })
+      : all;
+
+    if (!items.length) {
+      alert(all.length
+        ? '書きで出題できる語がありませんでした。「漢字→読み」に切り替えるか、絞り込みを見直してください。'
+        : '該当する語がありません。絞り込みを見直してください。');
+      return;
+    }
+    var pages = Math.ceil(items.length / PER_PAGE[kind]) + (kind === 'test' ? 1 : 0);
+    if (pages > 4 && !confirm(items.length + ' 語あります。A4で' + pages + '枚ほどになりますが、印刷しますか？')) return;
+
+    var sheet = $('printSheet');
+    sheet.innerHTML = printHeadHtml(kind, items.length, all.length - items.length) +
+                      (kind === 'test' ? printTestHtml(items) : printMemoHtml(items));
+    window.print();
+  }
+
+  // 印刷時は画面のUIを全部隠すので、紙面が空だと白紙が出てしまう。
+  // ブラウザの印刷（Ctrl+P、iPhone の 共有→プリント）から直接来た場合は案内を刷る。
+  function fillPrintFallback() {
+    var sheet = $('printSheet');
+    if (sheet.innerHTML) return;
+    sheet.innerHTML =
+      '<div class="ps-head"><h1 class="ps-title">印刷するリストが選ばれていません</h1>' +
+      '<p class="ps-meta"><span>「📖 漢字一覧」で範囲を絞ってから、' +
+      '「🖨 テスト形式で印刷」または「🖨 暗記リストで印刷」を押してください。</span></p></div>';
+  }
+
+  // Safari（iPhone を含む）は beforeprint / afterprint を発火しないので、
+  // print メディアクエリの変化も拾う。両方来ても困らないようにしてある。
+  window.addEventListener('beforeprint', fillPrintFallback);
+  var printMql = window.matchMedia && window.matchMedia('print');
+  if (printMql) {
+    var onPrintMedia = function (e) { if (e.matches) fillPrintFallback(); };
+    if (printMql.addEventListener) printMql.addEventListener('change', onPrintMedia);
+    else if (printMql.addListener) printMql.addListener(onPrintMedia);
+  }
+
+  // 紙面のDOMは大きくなるので片づける。ただし印刷中に消すと白紙になりうるため、
+  // 確実に印刷が終わっている afterprint と、一覧を閉じたときだけにする。
+  window.addEventListener('afterprint', function () { $('printSheet').innerHTML = ''; });
 
   // =====================================================
   // データのエクスポート／インポート（端末移行用）
@@ -953,7 +1100,11 @@
       daily: readJSON(LS_DAILY, {}),       // 日別の学習量
       priority: readJSON(LS_PRIORITY, {})  // 優先度の編集
     };
-    var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    // BOM は付けない。付けると古い版のアプリで JSON.parse が失敗し、端末間で
+    // バックアップを移せなくなる。文字コードは MIME で明示するにとどめる。
+    // （メモ帳で開くと化けて見えるが、中身は正しい UTF-8。取り込みには影響しない）
+    var blob = new Blob([JSON.stringify(payload, null, 2)],
+                        { type: 'application/json;charset=utf-8' });
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
     a.href = url;
@@ -964,11 +1115,30 @@
     setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
   }
 
-  function importData(file) {
+  // BOM を取り除く。付いたままだと JSON.parse が失敗する。
+  function stripBom(text) {
+    return text.charAt(0) === '﻿' ? text.slice(1) : text;
+  }
+
+  // まず UTF-8 として読む。化けていたら（置換文字が出たら）他の端末や
+  // 編集ソフトで Shift_JIS 保存された可能性があるので読み直す。
+  function readTextSmart(file, done) {
     var reader = new FileReader();
     reader.onload = function () {
+      var text = stripBom(String(reader.result || ''));
+      if (text.indexOf('�') === -1) { done(text); return; }
+      var retry = new FileReader();
+      retry.onload = function () { done(stripBom(String(retry.result || ''))); };
+      retry.onerror = function () { done(text); };
+      retry.readAsText(file, 'shift_jis');
+    };
+    reader.readAsText(file, 'utf-8');
+  }
+
+  function importData(file) {
+    readTextSmart(file, function (text) {
       var data;
-      try { data = JSON.parse(reader.result); }
+      try { data = JSON.parse(text); }
       catch (e) { alert('読み込めませんでした（JSON形式のバックアップファイルを選んでください）。'); return; }
       if (!data || typeof data !== 'object' ||
           !(data.history || data.custom || data.daily || data.priority)) {
@@ -992,8 +1162,7 @@
 
       alert('取り込みました。画面を更新します。');
       location.reload();
-    };
-    reader.readAsText(file);
+    });
   }
 
   // =====================================================
@@ -1028,6 +1197,19 @@
   bindChipGroup('autoVoiceGroup', 'data-voice', function (v) { settings.autoVoice = (v === 'on'); });
   bindChipGroup('listDirGroup', 'data-dir', function (v) { listFilter.dir = v; renderList(); });
   bindChipGroup('listStatusGroup', 'data-st', function (v) { listFilter.status = v; renderList(); });
+  // 印刷は「選択」ではなく「実行」なので、チップの選択状態は変えない
+  $('listPrintGroup').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-print]');
+    if (b) printList(b.getAttribute('data-print'));
+  });
+
+  // iPhone をホーム画面のアプリとして起動した場合、印刷が働かないことがある。
+  // 該当する端末にだけ、Safari で開き直す案内を出す。
+  if (window.navigator.standalone === true) {
+    $('printNote').insertAdjacentHTML('beforeend',
+      '<br><b>iPhoneでホーム画面から開いている場合</b>、印刷が始まらないことがあります。' +
+      'そのときは同じURLを Safari で開いてから印刷してください。');
+  }
   bindChipGroup('listLevelGroup', 'data-lv', function (v) { listFilter.level = v; renderList(); });
   bindChipGroup('listPriGroup', 'data-pri', function (v) { listFilter.pri = v; renderList(); });
 

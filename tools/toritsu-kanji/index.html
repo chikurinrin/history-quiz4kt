@@ -261,6 +261,7 @@
         <button class="chip" data-st="correct">正解</button>
         <button class="chip" data-st="unsure">不安</button>
         <button class="chip" data-st="weak">苦手</button>
+        <button class="chip" data-st="review">苦手＋不安</button>
         <button class="chip" data-st="new">未</button>
       </div>
     </div>
@@ -286,9 +287,22 @@
         <button class="chip" data-pri="1">★1</button>
       </div>
     </div>
-    <p class="list-note">区分（正解・不安・苦手）は<b>読み・書きで別々</b>です。上の切り替えで対象が変わります。各語のボタンで変更（もう一度押すと「未」に戻る）。</p>
+    <div class="list-filter">
+      <div class="btn-group" id="listPrintGroup">
+        <button class="chip" data-print="test">🖨 テスト形式で印刷</button>
+        <button class="chip" data-print="memo">🖨 暗記リストで印刷</button>
+      </div>
+    </div>
+    <p class="list-note print-note" id="printNote">
+      印刷画面で<b>用紙サイズをA4</b>に指定してください（スマホでは端末側の設定が優先されます）。
+      プリンタが無いときは「PDFとして保存」を選べば、あとからパソコンで印刷できます。
+    </p>
+    <p class="list-note">区分（正解・不安・苦手）は<b>読み・書きで別々</b>です。上の切り替えで対象が変わります。各語のボタンで変更（もう一度押すと「未」に戻る）。<br>印刷は<b>上の絞り込みで残っている語</b>がそのままA4に出ます（例：区分「苦手」＋「漢字→読み」で、読みの苦手だけ）。</p>
     <div class="list-rows" id="listRows"></div>
   </section>
+
+  <!-- 印刷用の紙面（画面には出さず、印刷時だけ表示する） -->
+  <div class="print-sheet" id="printSheet" aria-hidden="true"></div>
 
   <!-- 問題追加モーダル -->
   <div class="modal-backdrop hidden" id="addModal">
