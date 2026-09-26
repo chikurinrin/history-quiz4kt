@@ -1076,8 +1076,11 @@ body.quiz-active { padding-bottom: 12px; }
   .ps-name { float: right; font-size: 9pt; border-bottom: .6pt solid #000; min-width: 45mm; }
   .ps-note { font-size: 8.5pt; margin: 1.5mm 0 0; }
 
-  /* 本文は2段組。項目が段や紙をまたいで割れないようにする */
+  /* 本文は段組（暗記リスト=2段／テスト形式=3段）。
+     項目が段や紙をまたいで割れないようにする。 */
   .ps-body { column-count: 2; column-gap: 7mm; column-rule: .4pt solid #bbb; }
+  /* テスト形式は1行が短いので3段にして、1枚あたりの語数を増やす */
+  .ps-body.test { column-count: 3; column-gap: 5mm; }
   .ps-item { break-inside: avoid; page-break-inside: avoid; margin: 0 0 2.2mm; }
 
   .ps-no { display: inline-block; min-width: 7mm; font-size: 9pt; }
@@ -1085,8 +1088,10 @@ body.quiz-active { padding-bottom: 12px; }
 
   /* テスト形式：解答欄 */
   .ps-item.test { display: flex; align-items: flex-end; gap: 2mm; padding-bottom: .6mm; }
-  .ps-item.test .ps-q { white-space: nowrap; }
-  .ps-blank { flex: 1; border-bottom: .5pt solid #444; min-height: 6mm; }
+  /* 3段だと1段が狭いので、長い語は折り返してよい。
+     解答欄は flex-basis で最低幅を確保し、語が長くても潰れないようにする。 */
+  .ps-item.test .ps-q { min-width: 0; }
+  .ps-blank { flex: 1 0 13mm; border-bottom: .5pt solid #444; min-height: 6mm; }
   .ps-item.test.writing .ps-blank { min-height: 9mm; border-bottom-width: .8pt; }
 
   /* 暗記リスト */

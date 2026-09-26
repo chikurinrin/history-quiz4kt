@@ -114,11 +114,20 @@
   }
 
   // ---- 状態 ----
-  var settings = { mode: 'reading', level: 'all', cat: 'all', pool: 'all', pri: 'all', autoSpeak: false, autoSpeed: 3, autoVoice: true };
+  var settings = { mode: 'reading', level: 'all', cat: 'all', round: 'all', pool: 'all', pri: 'all', autoSpeak: false, autoSpeed: 3, autoVoice: true };
   var dueCount = { r: 0, w: 0 }; // 今日の復習の読み書き別件数（updateDashboardで更新）
   var session = { queue: [], index: 0, current: null, graded: false };
   var auto = { on: false, paused: false, timer: null };
-  var listFilter = { status: 'all', level: 'all', q: '', dir: 'kw', pri: 'all' }; // dir: kw=漢字→読み / rk=読み→漢字
+  var listFilter = { status: 'all', level: 'all', q: '', dir: 'kw', pri: 'all', round: 'all' }; // dir: kw=漢字→読み / rk=読み→漢字
+
+  // 西対策プリントの回での絞り込み。
+  //  'all' = 絞らない／'any' = プリント掲載語すべて／'第N回' = その回だけ。
+  //  同じ語が複数の回に出ることがあるので、rounds は配列で持っている。
+  function matchesRound(q, want) {
+    if (want === 'all') return true;
+    if (!q.rounds) return false;
+    return want === 'any' || q.rounds.indexOf(want) !== -1;
+  }
 
   // ---- DOM 参照 ----
   var $ = function (id) { return document.getElementById(id); };
@@ -273,6 +282,8 @@
         }
         if (settings.cat !== 'all' && q.cat !== settings.cat) return false;
       }
+      // 西対策プリントの回。級・難読カテゴリとは別の軸なので、モードによらず効かせる
+      if (!matchesRound(q, settings.round)) return false;
       if (settings.pool === 'weak' && !needsReview(key)) return false;     // 苦手＋不安
       if (settings.pool === 'weakonly' && !isWeak(key)) return false;      // 苦手だけ
       if (settings.pool === 'unseen' && history[key]) return false;
@@ -866,6 +877,7 @@
       if (listFilter.level !== 'all' && item.level !== listFilter.level) return;
       var st = statusOf(keyOf(item.id, mode));
       if (!matchesStatusFilter(st)) return;
+      if (!matchesRound(item, listFilter.round)) return;
       if (listFilter.pri !== 'all') {
         var p = priorityOf(item.word, item.level);
         if (p === null || String(p) !== listFilter.pri) return;
@@ -967,7 +979,7 @@
     'all': '漢字リスト', 'correct': '正解した漢字', 'unsure': '不安な漢字',
     'weak': '苦手な漢字', 'review': '苦手・不安な漢字', 'new': '未学習の漢字'
   };
-  var PER_PAGE = { test: 76, memo: 40 };   // A4・2段組でのおおよその収録数
+  var PER_PAGE = { test: 114, memo: 40 };  // A4のおおよその収録数（テスト=3段／暗記=2段）
 
   // テストとして出せない語を落とす。
   // 書きは、答えの漢字が無い語（慣用句・かな語）と、読み専用の準1級を除く
@@ -986,6 +998,10 @@
       '<span>' + shown + ' 語</span>',
       '<span>' + (listFilter.level === 'all' ? '全級' : escapeHtml(listFilter.level)) + '</span>'
     ];
+    if (listFilter.round !== 'all') {
+      meta.push('<span>西対策' +
+        (listFilter.round === 'any' ? '全回' : escapeHtml(listFilter.round)) + '</span>');
+    }
     if (listFilter.pri !== 'all') meta.push('<span>優先度★' + escapeHtml(listFilter.pri) + '</span>');
     if (listFilter.q) meta.push('<span>検索「' + escapeHtml(listFilter.q) + '」</span>');
     meta.push('<span>' + todayKey() + '</span>');
@@ -1016,7 +1032,7 @@
       ans += '<div class="ps-ans"><span class="ps-no">' + n + '</span>' +
              escapeHtml(writing ? q.word : q.reading) + '</div>';
     });
-    return '<div class="ps-body">' + body + '</div>' +
+    return '<div class="ps-body test">' + body + '</div>' +
            '<section class="ps-answers"><h2>解答</h2>' +
            '<div class="ps-ans-list">' + ans + '</div></section>';
   }
@@ -1191,6 +1207,7 @@
   bindChipGroup('modeGroup', 'data-mode', function (v) { settings.mode = v; renderGroupPanel(); });
   bindChipGroup('levelGroup', 'data-level', function (v) { settings.level = v; renderGroupPanel(); });
   bindChipGroup('catGroup', 'data-cat', function (v) { settings.cat = v; });
+  bindChipGroup('roundGroup', 'data-round', function (v) { settings.round = v; });
   bindChipGroup('poolGroup', 'data-pool', function (v) { settings.pool = v; });
   bindChipGroup('priGroup', 'data-pri', function (v) { settings.pri = v; });
   bindChipGroup('autoSpeedGroup', 'data-sec', function (v) { settings.autoSpeed = parseInt(v, 10) || 3; });
@@ -1212,6 +1229,7 @@
   }
   bindChipGroup('listLevelGroup', 'data-lv', function (v) { listFilter.level = v; renderList(); });
   bindChipGroup('listPriGroup', 'data-pri', function (v) { listFilter.pri = v; renderList(); });
+  bindChipGroup('listRoundGroup', 'data-round', function (v) { listFilter.round = v; renderList(); });
 
   $('autoSpeak').addEventListener('change', function (e) { settings.autoSpeak = e.target.checked; });
   $('startBtn').addEventListener('click', startSession);
@@ -1468,10 +1486,12 @@
     settings.pool = 'due';
     settings.level = 'all';
     settings.cat = 'all';
+    settings.round = 'all';   // 今日の復習は期限で選ぶので、回の絞り込みは外す
     syncChip('modeGroup', 'data-mode', settings.mode);
     syncChip('poolGroup', 'data-pool', 'due');
     syncChip('levelGroup', 'data-level', 'all');
     syncChip('catGroup', 'data-cat', 'all');
+    syncChip('roundGroup', 'data-round', 'all');
     startSession();
   });
 
