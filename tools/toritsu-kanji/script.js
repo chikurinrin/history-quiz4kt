@@ -979,7 +979,9 @@
     'all': '漢字リスト', 'correct': '正解した漢字', 'unsure': '不安な漢字',
     'weak': '苦手な漢字', 'review': '苦手・不安な漢字', 'new': '未学習の漢字'
   };
-  var PER_PAGE = { test: 114, memo: 40 };  // A4のおおよその収録数（テスト=3段／暗記=2段）
+  // A4 1枚あたりのおおよその収録数。テストは3段・高さ固定、暗記は2段。
+  // 書きは1項目が高いので少なくなる。
+  var PER_PAGE = { test: 72, testWriting: 57, memo: 40 };
 
   // テストとして出せない語を落とす。
   // 書きは、答えの漢字が無い語（慣用句・かな語）と、読み専用の準1級を除く
@@ -991,7 +993,10 @@
     return !!q.word;
   }
 
-  function printHeadHtml(kind, shown, dropped) {
+  // 見出し。テスト形式では問題面と解答面で同じ高さにする必要がある
+  // （高さが違うと1ページに入る語数がずれ、問題と解答の位置が対応しなくなる）。
+  // そのため isAnswer でも構成は変えず、表題に「解答」を足すだけにする。
+  function printHeadHtml(kind, shown, dropped, isAnswer) {
     var writing = listMode() === 'writing';
     var meta = [
       '<span>' + (kind === 'test' ? 'テスト形式' : '暗記リスト') + '</span>',
@@ -1007,10 +1012,10 @@
     meta.push('<span>' + todayKey() + '</span>');
 
     var html = '<div class="ps-head">' +
-      (kind === 'test' ? '<div class="ps-name">名前</div>' : '') +
+      (kind === 'test' ? '<div class="ps-name">' + (isAnswer ? '解答' : '名前') + '</div>' : '') +
       '<h1 class="ps-title">' +
         escapeHtml(STATUS_TITLE[listFilter.status] || '漢字リスト') +
-        '（' + (writing ? '書き' : '読み') + '）' +
+        '（' + (writing ? '書き' : '読み') + (isAnswer ? '・解答' : '') + '）' +
       '</h1>' +
       '<p class="ps-meta">' + meta.join('') + '</p>';
     if (dropped > 0) {
@@ -1019,22 +1024,26 @@
     return html + '</div>';
   }
 
-  function printTestHtml(items) {
+  // 問題面と解答面は、同じ入れ物（.ps-item.test）を同じ順で並べる。
+  // 解答欄の位置に答えを入れるだけなので、1項目の高さも段組も一致し、
+  // 「問題の1枚目のこの位置」＝「解答の1枚目の同じ位置」になる。
+  function printTestHtml(items, dropped) {
     var writing = listMode() === 'writing';
+    var cls = 'ps-item test' + (writing ? ' writing' : '');
     var body = '', ans = '';
     items.forEach(function (it, i) {
       var q = it.q, n = i + 1;
-      body += '<div class="ps-item test' + (writing ? ' writing' : '') + '">' +
-                '<span class="ps-no">' + n + '</span>' +
-                '<span class="ps-q">' + escapeHtml(writing ? q.reading : q.word) + '</span>' +
-                '<span class="ps-blank"></span>' +
-              '</div>';
-      ans += '<div class="ps-ans"><span class="ps-no">' + n + '</span>' +
-             escapeHtml(writing ? q.word : q.reading) + '</div>';
+      var head = '<span class="ps-no">' + n + '</span>' +
+                 '<span class="ps-q">' + escapeHtml(writing ? q.reading : q.word) + '</span>';
+      body += '<div class="' + cls + '">' + head + '<span class="ps-blank"></span></div>';
+      ans += '<div class="' + cls + '">' + head +
+             '<span class="ps-ansval">' + escapeHtml(writing ? q.word : q.reading) + '</span></div>';
     });
     return '<div class="ps-body test">' + body + '</div>' +
-           '<section class="ps-answers"><h2>解答</h2>' +
-           '<div class="ps-ans-list">' + ans + '</div></section>';
+           '<section class="ps-answers">' +
+             printHeadHtml('test', items.length, dropped, true) +
+             '<div class="ps-body test">' + ans + '</div>' +
+           '</section>';
   }
 
   function printMemoHtml(items) {
@@ -1069,12 +1078,19 @@
         : '該当する語がありません。絞り込みを見直してください。');
       return;
     }
-    var pages = Math.ceil(items.length / PER_PAGE[kind]) + (kind === 'test' ? 1 : 0);
-    if (pages > 4 && !confirm(items.length + ' 語あります。A4で' + pages + '枚ほどになりますが、印刷しますか？')) return;
+    // テストは解答面が問題面と同じ組みで続くので、枚数はちょうど2倍になる
+    var perPage = kind === 'memo' ? PER_PAGE.memo
+                : writing ? PER_PAGE.testWriting : PER_PAGE.test;
+    var sheets = Math.ceil(items.length / perPage);
+    var pages = kind === 'test' ? sheets * 2 : sheets;
+    var note = kind === 'test' ? '（問題' + sheets + '枚＋解答' + sheets + '枚）' : '';
+    if (pages > 4 && !confirm(items.length + ' 語あります。A4で' + pages + '枚ほど' + note +
+        'になりますが、印刷しますか？')) return;
 
     var sheet = $('printSheet');
-    sheet.innerHTML = printHeadHtml(kind, items.length, all.length - items.length) +
-                      (kind === 'test' ? printTestHtml(items) : printMemoHtml(items));
+    var dropped = all.length - items.length;
+    sheet.innerHTML = printHeadHtml(kind, items.length, dropped, false) +
+                      (kind === 'test' ? printTestHtml(items, dropped) : printMemoHtml(items));
     window.print();
   }
 

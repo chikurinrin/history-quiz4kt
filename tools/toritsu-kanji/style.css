@@ -48,6 +48,46 @@
   --hist-base: #263041;
 }
 
+/* =====================================================
+   漢字用フォント（とめ・はね・はらいが分かる書体）
+     端末にある教科書体を使う。無ければ明朝体に落とす。明朝体もゴシック体
+     より筆押さえや跳ねがはっきりしている。
+     unicode-range を漢字の範囲に限っているので、かな・英数は本文の書体の
+     ままになる（画面の見た目を大きく変えないため）。
+     Webフォントは使わない。Service Worker が同一オリジンしか保存しないので、
+     オフラインで効かなくなるうえ、日本語のフォントは読み込みが重いため。
+   ===================================================== */
+@font-face {
+  font-family: 'KanjiClear';
+  font-style: normal;
+  font-weight: 400;
+  src: local('UD デジタル教科書体 NK-R'), local('UD Digi Kyokasho NK-R'),
+       local('UD Digi Kyokasho NK'),     local('UDDigiKyokashoNK-R'),
+       local('UD デジタル教科書体 N-R'),  local('UD Digi Kyokasho N-R'),
+       local('UD Digi Kyokasho N'),      local('UDDigiKyokashoN-R'),
+       local('游教科書体'), local('YuKyokasho'),
+       local('HGP教科書体'), local('HGS教科書体'), local('HG教科書体'),
+       local('Hiragino Mincho ProN'), local('ヒラギノ明朝 ProN W3'),
+       local('Yu Mincho'), local('游明朝'),
+       local('Noto Serif CJK JP'), local('Noto Serif JP');
+  unicode-range: U+3005-3007, U+4E00-9FFF, U+3400-4DBF, U+F900-FAFF;
+}
+@font-face {
+  font-family: 'KanjiClear';
+  font-style: normal;
+  font-weight: 700;
+  src: local('UD デジタル教科書体 NK-B'), local('UD Digi Kyokasho NK-B'),
+       local('UDDigiKyokashoNK-B'),
+       local('UD デジタル教科書体 N-B'),  local('UD Digi Kyokasho N-B'),
+       local('UDDigiKyokashoN-B'),
+       local('游教科書体 横用 M'), local('YuKyokasho Yoko Medium'),
+       local('HGP教科書体'), local('HGS教科書体'), local('HG教科書体'),
+       local('Hiragino Mincho ProN W6'), local('ヒラギノ明朝 ProN W6'),
+       local('Yu Mincho Demibold'), local('游明朝 Demibold'),
+       local('Noto Serif CJK JP Bold'), local('Noto Serif JP');
+  unicode-range: U+3005-3007, U+4E00-9FFF, U+3400-4DBF, U+F900-FAFF;
+}
+
 * { box-sizing: border-box; }
 
 body {
@@ -381,6 +421,19 @@ body.auto-paused .auto-indicator { color: var(--sub); animation: none; }
   color: var(--sub);
   margin: 0 0 8px;
 }
+/* 漢字を読ませる・書かせる箇所だけ教科書体にする。
+   ボタンやラベルなどの操作まわりは本文の書体のまま。 */
+.sentence,
+.reveal-word,
+.lrow-word .lw,
+.lrow-word .lr,
+.ld-line,
+.ex-q,
+.ex-ans,
+.print-sheet {
+  font-family: 'KanjiClear', "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", system-ui, sans-serif;
+}
+
 .sentence {
   font-size: 1.5rem;
   line-height: 2;
@@ -1086,13 +1139,25 @@ body.quiz-active { padding-bottom: 12px; }
   .ps-no { display: inline-block; min-width: 7mm; font-size: 9pt; }
   .ps-q { font-weight: 700; }
 
-  /* テスト形式：解答欄 */
-  .ps-item.test { display: flex; align-items: flex-end; gap: 2mm; padding-bottom: .6mm; }
-  /* 3段だと1段が狭いので、長い語は折り返してよい。
-     解答欄は flex-basis で最低幅を確保し、語が長くても潰れないようにする。 */
-  .ps-item.test .ps-q { min-width: 0; }
-  .ps-blank { flex: 1 0 13mm; border-bottom: .5pt solid #444; min-height: 6mm; }
-  .ps-item.test.writing .ps-blank { min-height: 9mm; border-bottom-width: .8pt; }
+  /* テスト形式：問題面と解答面は同じ入れ物を使う。
+     1項目の高さを固定して、中身によらず必ず一致させる。高さが変わると
+     1段・1ページに入る数がずれ、問題と解答の位置が対応しなくなるため。
+     はみ出す場合は折り返さずに切る（高さを保つことを優先する）。 */
+  .ps-item.test {
+    display: flex; align-items: flex-end; gap: 2mm;
+    height: 8mm; overflow: hidden;
+  }
+  .ps-item.test.writing { height: 11mm; }
+  .ps-item.test .ps-q { min-width: 0; white-space: nowrap; }
+  .ps-blank { flex: 1 0 13mm; border-bottom: .5pt solid #444; }
+  .ps-item.test.writing .ps-blank { border-bottom-width: .8pt; }
+  /* 解答欄と同じ位置・同じ罫線の上に答えを置く。
+     答えは右端にそろえる。段の右側をまとめて隠せば、問題だけを見て解ける。 */
+  .ps-ansval {
+    flex: 1 0 13mm; font-size: 9.5pt; white-space: nowrap;
+    border-bottom: .5pt solid #ccc;
+    text-align: right;
+  }
 
   /* 暗記リスト */
   .ps-item.memo { padding-bottom: 1.2mm; border-bottom: .3pt dotted #bbb; }
@@ -1102,9 +1167,6 @@ body.quiz-active { padding-bottom: 12px; }
   .ps-label { font-weight: 700; margin-right: .4em; }
   .ps-target { text-decoration: underline; font-weight: 700; }
 
-  /* 解答（最終ページ） */
+  /* 解答（問題のあとに改ページ。以降は問題面と同じ組み方で続く） */
   .ps-answers { break-before: page; page-break-before: always; }
-  .ps-answers h2 { font-size: 12pt; margin: 0 0 2mm; border-bottom: 1pt solid #000; }
-  .ps-ans-list { column-count: 3; column-gap: 6mm; font-size: 9.5pt; }
-  .ps-ans { break-inside: avoid; margin-bottom: 1mm; }
 }
