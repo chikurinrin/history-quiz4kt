@@ -32,7 +32,7 @@
   var daily    = readJSON(LS_DAILY, {});
   var settings = readJSON(LS_SETTINGS, null) || {
     dir: 'r', sections: [0], pool: 'all', order: 'shuffle', count: 20,
-    autoSpeak: false, autoSpeed: 3, autoVoice: 'word', autoLoop: false, sentRate: 0.8,
+    autoSpeak: false, autoSpeed: 3, autoVoice: 'word', autoLoop: false, sentRate: 0.8, sentGap: 3,
     hide: 'meaning', listSent: false
   };
   function saveSettings() { writeJSON(LS_SETTINGS, settings); }
@@ -225,7 +225,7 @@
   // 古い index.html がキャッシュに残ったまま新しい script.js が動くと、
   // 参照する要素が見つからず途中で止まってしまう（例：テストに正解してもごほうびが出ない）。
   // 気づけないまま使い続けることになるので、版が違えば知らせて直せるようにする。
-  var APP_VERSION = '2026-10-24';
+  var APP_VERSION = '2026-10-24b';
   var noticeShown = false;
 
   function showUpdateNotice(reason) {
@@ -305,6 +305,11 @@
   function sentRate() {
     var r = parseFloat(settings.sentRate);
     return r > 0 ? r : 0.8;
+  }
+  // 「例文＋和訳」で、先の文を読み終えてから答えを出すまでの秒数
+  function sentGap() {
+    var g = parseFloat(settings.sentGap);
+    return g >= 0 ? g : 3;
   }
   function speak(text, lang, rate) {
     if (!synth) return Promise.resolve();
@@ -614,7 +619,12 @@
       else speak(w.meaning, 'ja-JP');
     }
 
-    // 例文は表示の秒数より長くかかるので、読み終わるまで答えを出さない
+    // 例文は表示の秒数より長くかかるので、読み終わるまで答えを出さない。
+    // 読み終わってから「和訳までの間」だけ待って、考える時間をとる
+    if (voice === 'sent') {
+      var gap = sentGap() * 1000;
+      first = first.then(function () { return alive() ? delay(gap) : null; });
+    }
     Promise.all([first, delay(wait)]).then(function () {
       if (!alive()) return;
       revealAnswer();
@@ -1210,6 +1220,7 @@
   bindChips('autoSpeedGroup', 'data-sec', function (v) { settings.autoSpeed = parseInt(v, 10); saveSettings(); });
   bindChips('autoVoiceGroup', 'data-voice', function (v) { settings.autoVoice = v; saveSettings(); });
   bindChips('sentRateGroup', 'data-rate', function (v) { settings.sentRate = parseFloat(v); saveSettings(); });
+  bindChips('sentGapGroup', 'data-gap', function (v) { settings.sentGap = parseFloat(v); saveSettings(); });
 
   $('autoSpeak').addEventListener('change', function (e) { settings.autoSpeak = e.target.checked; saveSettings(); });
   $('autoLoop').addEventListener('change', function (e) { settings.autoLoop = e.target.checked; saveSettings(); });
@@ -1358,6 +1369,7 @@
   syncChips('autoSpeedGroup', 'data-sec', settings.autoSpeed);
   syncChips('autoVoiceGroup', 'data-voice', settings.autoVoice);
   syncChips('sentRateGroup', 'data-rate', sentRate());
+  syncChips('sentGapGroup', 'data-gap', sentGap());
   $('autoSpeak').checked = !!settings.autoSpeak;
   $('autoLoop').checked = !!settings.autoLoop;
 

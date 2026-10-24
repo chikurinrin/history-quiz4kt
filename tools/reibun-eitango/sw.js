@@ -5,7 +5,7 @@
 //  → 更新が端末のキャッシュに邪魔されず反映される。
 // =====================================================
 // 中身を変えたときはここの番号を上げる。古いキャッシュは activate で捨てる。
-var CACHE = 'reibun-eitango-cache-v6';
+var CACHE = 'reibun-eitango-cache-v7';
 
 self.addEventListener('install', function () {
   self.skipWaiting();               // 待たずにすぐ有効化（更新をその場で反映するため）

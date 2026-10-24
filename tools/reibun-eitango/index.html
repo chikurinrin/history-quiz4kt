@@ -54,7 +54,7 @@
     })();
   </script>
 </head>
-<body data-app-version="2026-10-24">
+<body data-app-version="2026-10-24b">
 
 <!-- 画面（HTML）とプログラム（JS）の版が食い違ったときに出る案内 -->
 <div class="update-notice hidden" id="updateNotice">
@@ -164,6 +164,16 @@
       <button class="chip" data-rate="0.6">とてもゆっくり</button>
       <button class="chip active" data-rate="0.8">ゆっくり</button>
       <button class="chip" data-rate="1">ふつう</button>
+    </div>
+  </div>
+  <div class="control-row">
+    <span class="control-label">例文＋和訳：和訳までの間</span>
+    <div class="btn-group" id="sentGapGroup">
+      <button class="chip" data-gap="1">1秒</button>
+      <button class="chip active" data-gap="3">3秒</button>
+      <button class="chip" data-gap="5">5秒</button>
+      <button class="chip" data-gap="8">8秒</button>
+      <button class="chip" data-gap="12">12秒</button>
     </div>
   </div>
 
