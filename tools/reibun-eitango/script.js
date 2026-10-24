@@ -32,7 +32,7 @@
   var daily    = readJSON(LS_DAILY, {});
   var settings = readJSON(LS_SETTINGS, null) || {
     dir: 'r', sections: [0], pool: 'all', order: 'shuffle', count: 20,
-    autoSpeak: false, autoSpeed: 3, autoVoice: 'word', autoLoop: false,
+    autoSpeak: false, autoSpeed: 3, autoVoice: 'word', autoLoop: false, sentRate: 0.8,
     hide: 'meaning', listSent: false
   };
   function saveSettings() { writeJSON(LS_SETTINGS, settings); }
@@ -218,6 +218,68 @@
   // DOM
   // =====================================================
   var $ = function (id) { return document.getElementById(id); };
+
+  // =====================================================
+  // 画面（HTML）とプログラム（JS）の版ずれ対策
+  // =====================================================
+  // 古い index.html がキャッシュに残ったまま新しい script.js が動くと、
+  // 参照する要素が見つからず途中で止まってしまう（例：テストに正解してもごほうびが出ない）。
+  // 気づけないまま使い続けることになるので、版が違えば知らせて直せるようにする。
+  var APP_VERSION = '2026-09-09';
+  var noticeShown = false;
+
+  function showUpdateNotice(reason) {
+    if (noticeShown) return;
+    noticeShown = true;
+    var box = $('updateNotice');
+    if (!box) { alert('古い画面が残っています。ページを読み込み直してください。\n' + (reason || '')); return; }
+    var text = $('updateNoticeText');
+    if (text) {
+      text.textContent = '古い画面が残っているため、うまく動かない部分があります（' +
+        (reason || '版のずれ') + '）。読み込み直してください。';
+    }
+    box.classList.remove('hidden');
+  }
+
+  // 保存した学習記録は消さずに、キャッシュと Service Worker だけ捨てて読み込み直す
+  function hardReload() {
+    var done = function () { location.replace(location.pathname + '?new=' + Date.now()); };
+    var jobs = [];
+    try {
+      if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+        jobs.push(navigator.serviceWorker.getRegistrations().then(function (rs) {
+          return Promise.all(rs.map(function (r) { return r.unregister(); }));
+        }));
+      }
+      if (window.caches && caches.keys) {
+        jobs.push(caches.keys().then(function (ks) {
+          return Promise.all(ks.map(function (k) { return caches.delete(k); }));
+        }));
+      }
+    } catch (e) {}
+    if (!jobs.length) { done(); return; }
+    Promise.all(jobs).then(done)['catch'](done);
+  }
+
+  // 版がずれていたら、まず自動で直しにいく（1回だけ）。
+  // それでも直らないときだけ、案内を出して手で直してもらう。
+  var LS_AUTOFIX = 'reibun-eitango.autofix';
+  function checkVersion() {
+    var pageVersion = document.body.getAttribute('data-app-version');
+    if (pageVersion === APP_VERSION) {
+      try { sessionStorage.removeItem(LS_AUTOFIX); } catch (e) {}   // 直ったので印を消す
+      return;
+    }
+    var tried = false;
+    try { tried = sessionStorage.getItem(LS_AUTOFIX) === '1'; } catch (e) {}
+    if (!tried) {
+      try { sessionStorage.setItem(LS_AUTOFIX, '1'); } catch (e) {}
+      hardReload();     // 読み込み直すのでここから先は動かない
+      return;
+    }
+    showUpdateNotice('画面は ' + (pageVersion || '不明') + '、プログラムは ' + APP_VERSION);
+  }
+
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
@@ -239,18 +301,25 @@
   function cleanForSpeech(text) {
     return String(text).replace(/[（(][^）)]*[）)]/g, ' ').replace(/[~～]/g, ' ').replace(/／/g, '、').trim();
   }
-  function speak(text, lang) {
+  // 例文の読み上げの速さ（1 が端末の標準）。古い設定には無いので既定値で補う。
+  function sentRate() {
+    var r = parseFloat(settings.sentRate);
+    return r > 0 ? r : 0.8;
+  }
+  function speak(text, lang, rate) {
     if (!synth) return Promise.resolve();
     var body = cleanForSpeech(text);
     if (!body) return Promise.resolve();
+    rate = rate || 1;
     return new Promise(function (resolve) {
       // 音声が入っていない端末では onend/onerror が来ないことがある。
       // そのまま待つと自動再生が止まってしまうので、文の長さから見積もった上限で必ず先へ進める。
       var done = false;
       var finish = function () { if (!done) { done = true; clearTimeout(guard); resolve(); } };
-      var guard = setTimeout(finish, Math.min(20000, 1500 + body.length * 120));
+      var guard = setTimeout(finish, Math.min(30000, (1500 + body.length * 120) / rate));
       var u = new SpeechSynthesisUtterance(body);
       u.lang = lang || 'en-US';
+      u.rate = rate;
       u.onend = finish;
       u.onerror = finish;
       try { synth.speak(u); } catch (e) { finish(); }
@@ -442,7 +511,10 @@
     $('qPrompt').textContent = dir === 'r'
       ? '意味を思い浮かべてから、答えを見ましょう。'
       : '英語でどう言うかを思い浮かべてから、答えを見ましょう。';
-    $('qQuestion').textContent = frontOf(w, dir);
+    // 自動再生の「例文＋和訳」では、単語の代わりに例文を表に出す（停止後の答えも同じ形で出すため覚えておく）
+    session.sentMode = auto.on && settings.autoVoice === 'sent';
+    $('qQuestion').textContent = session.sentMode ? (dir === 'r' ? w.sentEn : w.sentJa) : frontOf(w, dir);
+    $('qQuestion').classList.toggle('sent-mode', session.sentMode);
 
     $('answerArea').classList.remove('hidden');
     $('revealBox').classList.add('hidden');
@@ -453,9 +525,17 @@
 
   function revealAnswer() {
     var w = session.current, dir = session.dir;
-    $('revealWord').textContent = backOf(w, dir);
-    $('revealSentEn').textContent = w.sentEn;
-    $('revealSentJa').textContent = w.sentJa;
+    if (session.sentMode) {
+      // 答えは反対側の例文。下には単語と意味を添える
+      $('revealWord').textContent = dir === 'r' ? w.sentJa : w.sentEn;
+      $('revealSentEn').textContent = w.word;
+      $('revealSentJa').textContent = w.meaning;
+    } else {
+      $('revealWord').textContent = backOf(w, dir);
+      $('revealSentEn').textContent = w.sentEn;
+      $('revealSentJa').textContent = w.sentJa;
+    }
+    $('revealWord').classList.toggle('sent-mode', session.sentMode);
 
     var others = $('revealOthers');
     if (w.otherExamples && w.otherExamples.length) {
@@ -525,25 +605,32 @@
     var voice = settings.autoVoice;
 
     if (synth) synth.cancel();    // 前の語の読み上げが残っていたら止める
-    if (voice !== 'off') {
+    var first = Promise.resolve();
+    if (voice === 'sent') {
+      // 例文モード：英→日は英文→和訳、日→英は和訳→英文の順に読む
+      first = dir === 'r' ? speak(w.sentEn, 'en-US', sentRate()) : speak(w.sentJa, 'ja-JP');
+    } else if (voice !== 'off') {
       if (dir === 'r') speak(w.word, 'en-US');
       else speak(w.meaning, 'ja-JP');
     }
 
-    delay(wait).then(function () {
+    // 例文は表示の秒数より長くかかるので、読み終わるまで答えを出さない
+    Promise.all([first, delay(wait)]).then(function () {
       if (!alive()) return;
       revealAnswer();
 
       var chain = Promise.resolve();
-      if (voice === 'full') {
+      if (voice === 'sent') {
+        chain = dir === 'r' ? speak(w.sentJa, 'ja-JP') : speak(w.sentEn, 'en-US', sentRate());
+      } else if (voice === 'full') {
         chain = (dir === 'r' ? speak(w.meaning, 'ja-JP') : speak(w.word, 'en-US'))
-          .then(function () { return alive() ? speak(w.sentEn, 'en-US') : null; });
+          .then(function () { return alive() ? speak(w.sentEn, 'en-US', sentRate()) : null; });
       } else if (voice === 'word' && dir === 'w') {
         speak(w.word, 'en-US');   // 日→英は答え（英語）を読む
       }
 
       // 読み上げが長引いても待ちすぎない
-      return Promise.race([chain, delay(wait + 8000)]);
+      return Promise.race([chain, delay(wait + 8000 / sentRate())]);
     }).then(function () {
       if (!alive()) return;
       return delay(wait);
@@ -662,7 +749,9 @@
       box.innerHTML = html;
     }
     $('tRetryWrongBtn').classList.toggle('hidden', quizState.wrong.length === 0);
-    judgeReward(total, quizState.correct);
+    // ごほうびの表示でつまずいても、ダッシュボードの更新までは必ず行う
+    try { judgeReward(total, quizState.correct); }
+    catch (e) { showUpdateNotice('ごほうびの処理でエラー: ' + e.message); }
     updateDashboard();
     renderGroupPanel();
   }
@@ -672,14 +761,24 @@
   // =====================================================
   // 50問に挑戦して25問以上正解できたら、プレイ権を1回あげる
   function judgeReward(total, correct) {
-    var banner = $('rewardBanner');
-    var hint = $('rewardHint');
     var lives = livesFor(correct);
 
+    // 先にプレイ権を記録する。表示でつまずいても、もらった権利が消えないようにするため。
     if (lives >= 1) {
       reward.tickets.push(lives);
       reward.cleared++;
       saveReward();
+    }
+
+    var banner = $('rewardBanner');
+    var hint = $('rewardHint');
+    // 画面が古いと、ここで参照する場所が無くて黙って止まってしまう。気づけるように知らせる。
+    if (!banner || !hint || !$('rewardBannerText') || !$('rewardBtn')) {
+      showUpdateNotice('ごほうびの表示部分が見つからない');
+      return;
+    }
+
+    if (lives >= 1) {
       banner.classList.remove('hidden');
       hint.classList.add('hidden');
       // あと何問正解すればもう1機増えたかも見せる（次に頑張る目安になる）
@@ -1110,6 +1209,7 @@
   bindChips('countGroup', 'data-count', function (v) { settings.count = parseInt(v, 10); saveSettings(); });
   bindChips('autoSpeedGroup', 'data-sec', function (v) { settings.autoSpeed = parseInt(v, 10); saveSettings(); });
   bindChips('autoVoiceGroup', 'data-voice', function (v) { settings.autoVoice = v; saveSettings(); });
+  bindChips('sentRateGroup', 'data-rate', function (v) { settings.sentRate = parseFloat(v); saveSettings(); });
 
   $('autoSpeak').addEventListener('change', function (e) { settings.autoSpeak = e.target.checked; saveSettings(); });
   $('autoLoop').addEventListener('change', function (e) { settings.autoLoop = e.target.checked; saveSettings(); });
@@ -1199,6 +1299,7 @@
   })();
 
   $('adminOffBtn').addEventListener('click', function () { setAdmin(false); });
+  if ($('updateReloadBtn')) $('updateReloadBtn').addEventListener('click', hardReload);
 
   $('rewardBtn').addEventListener('click', openGame);
   $('rewardPlayBtn').addEventListener('click', openGame);
@@ -1256,11 +1357,13 @@
   syncChips('countGroup', 'data-count', settings.count);
   syncChips('autoSpeedGroup', 'data-sec', settings.autoSpeed);
   syncChips('autoVoiceGroup', 'data-voice', settings.autoVoice);
+  syncChips('sentRateGroup', 'data-rate', sentRate());
   $('autoSpeak').checked = !!settings.autoSpeak;
   $('autoLoop').checked = !!settings.autoLoop;
 
   renderGroupPanel();
   updateDashboard();
+  checkVersion();
   renderAdmin();
   renderRewardButton();
   showView('controls');

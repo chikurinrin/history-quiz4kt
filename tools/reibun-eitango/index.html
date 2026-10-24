@@ -24,15 +24,43 @@
         document.documentElement.setAttribute('data-theme', t);
       } catch (e) {}
     })();
-    // Service Worker（オンライン時は常に最新を取得／オフラインでも動く）
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function () {
-        navigator.serviceWorker.register('sw.js').catch(function () {});
+    // ===== 更新の自動反映（Service Worker） =====
+    // スマホでホーム画面から使っていると、アプリを閉じないため古い版が残りやすい。
+    // 新しい版が有効になったら自動で読み込み直し、画面に戻るたびに更新を確かめる。
+    (function () {
+      if (!('serviceWorker' in navigator)) return;
+      // 初回登録でも controllerchange は起きるので、すでに動いていた場合だけ読み込み直す
+      var hadController = !!navigator.serviceWorker.controller;
+      var reloading = false;
+
+      navigator.serviceWorker.addEventListener('controllerchange', function () {
+        if (reloading || !hadController) return;
+        reloading = true;
+        location.reload();
       });
-    }
+
+      window.addEventListener('load', function () {
+        // updateViaCache: 'none' で、sw.js 自体がブラウザのキャッシュから読まれないようにする
+        navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(function (reg) {
+          var check = function () { try { reg.update(); } catch (e) {} };
+          check();                                    // 開いたとき
+          setInterval(check, 30 * 60 * 1000);         // 30分ごと
+          document.addEventListener('visibilitychange', function () {
+            if (document.visibilityState === 'visible') check();   // 画面に戻ったとき
+          });
+          window.addEventListener('online', check);   // 通信が戻ったとき
+        }).catch(function () {});
+      });
+    })();
   </script>
 </head>
-<body>
+<body data-app-version="2026-09-09">
+
+<!-- 画面（HTML）とプログラム（JS）の版が食い違ったときに出る案内 -->
+<div class="update-notice hidden" id="updateNotice">
+  <span id="updateNoticeText">古い画面が残っているようです。読み込み直してください。</span>
+  <button class="update-btn" id="updateReloadBtn">最新にして読み込み直す</button>
+</div>
 
 <header class="app-header">
   <h1>例文で覚える英単語</h1>
@@ -125,9 +153,18 @@
     <div class="btn-group" id="autoVoiceGroup">
       <button class="chip active" data-voice="word">単語だけ</button>
       <button class="chip" data-voice="full">単語＋意味＋例文</button>
+      <button class="chip" data-voice="sent">例文＋和訳</button>
       <button class="chip" data-voice="off">🔇 音声なし</button>
     </div>
     <label class="toggle row-full"><input type="checkbox" id="autoLoop"> 最後まで行ったら繰り返す</label>
+  </div>
+  <div class="control-row">
+    <span class="control-label">例文を読む速さ</span>
+    <div class="btn-group" id="sentRateGroup">
+      <button class="chip" data-rate="0.6">とてもゆっくり</button>
+      <button class="chip active" data-rate="0.8">ゆっくり</button>
+      <button class="chip" data-rate="1">ふつう</button>
+    </div>
   </div>
 
   <button class="reward-btn" id="rewardBtn"></button>

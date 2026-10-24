@@ -4,14 +4,27 @@
 //  取得したものはオフライン用に保存し、通信できないときはそれで動作する。
 //  → 更新が端末のキャッシュに邪魔されず反映される。
 // =====================================================
-var CACHE = 'reibun-eitango-cache-v1';
+// 中身を変えたときはここの番号を上げる。古いキャッシュは activate で捨てる。
+var CACHE = 'reibun-eitango-cache-v6';
 
 self.addEventListener('install', function () {
-  self.skipWaiting();               // すぐ有効化
+  self.skipWaiting();               // 待たずにすぐ有効化（更新をその場で反映するため）
+});
+
+// ページ側から「今すぐ切り替えて」と言われたときにも応じる
+self.addEventListener('message', function (e) {
+  if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('activate', function (e) {
-  e.waitUntil(self.clients.claim()); // 既存のタブもすぐ制御下に
+  e.waitUntil(
+    caches.keys().then(function (keys) {
+      // 古い版のキャッシュを消す（画面とプログラムの版がずれる原因になるため）
+      return Promise.all(keys.map(function (k) {
+        return k === CACHE ? null : caches.delete(k);
+      }));
+    }).then(function () { return self.clients.claim(); })   // 既存のタブもすぐ制御下に
+  );
 });
 
 self.addEventListener('fetch', function (e) {

@@ -288,6 +288,9 @@ body {
 .reveal-answer { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .reveal-label { font-size: .7rem; color: #fff; background: var(--ok); border-radius: 999px; padding: 2px 9px; }
 .reveal-word { font-size: 1.5rem; font-weight: 700; color: var(--brand); word-break: break-word; }
+/* 自動再生の「例文＋和訳」：単語より長いので文字を小さめにする */
+.question.sent-mode { font-size: 1.45rem; line-height: 1.5; }
+.reveal-word.sent-mode { font-size: 1.25rem; line-height: 1.5; }
 .speak-mini {
   font: inherit;
   border: 1px solid var(--line);
@@ -828,3 +831,33 @@ body.game-open .admin-badge { display: none !important; }
   color: #fde68a !important;
 }
 .rg-note b { color: #fff !important; }
+
+/* ===== 版の食い違いの案内 ===== */
+.update-notice {
+  max-width: 860px;
+  margin: 12px auto 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: rgba(217, 43, 61, .12);
+  border: 1px solid var(--ng);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: .82rem;
+  color: var(--ng);
+}
+.update-btn {
+  font: inherit;
+  font-size: .8rem;
+  font-weight: 700;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--ng);
+  background: var(--ng);
+  color: #fff;
+  cursor: pointer;
+}
+.update-btn:hover { filter: brightness(1.08); }
+body.game-open .update-notice { display: none !important; }
