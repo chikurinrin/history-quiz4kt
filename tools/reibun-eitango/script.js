@@ -225,7 +225,7 @@
   // 古い index.html がキャッシュに残ったまま新しい script.js が動くと、
   // 参照する要素が見つからず途中で止まってしまう（例：テストに正解してもごほうびが出ない）。
   // 気づけないまま使い続けることになるので、版が違えば知らせて直せるようにする。
-  var APP_VERSION = '2026-09-09';
+  var APP_VERSION = '2026-10-24';
   var noticeShown = false;
 
   function showUpdateNotice(reason) {
