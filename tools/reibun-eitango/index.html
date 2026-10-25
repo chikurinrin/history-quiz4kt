@@ -54,7 +54,7 @@
     })();
   </script>
 </head>
-<body data-app-version="2026-10-24b">
+<body data-app-version="2026-10-25b">
 
 <!-- 画面（HTML）とプログラム（JS）の版が食い違ったときに出る案内 -->
 <div class="update-notice hidden" id="updateNotice">
@@ -99,6 +99,15 @@
       <button class="chip" data-dir="w">日本語 → 英語</button>
     </div>
     <p class="row-note">向きごとに習熟を別々に記録します（「読んで分かる」と「書ける・言える」は別の力なので）。</p>
+  </div>
+
+  <div class="control-row">
+    <span class="control-label">出題の単位</span>
+    <div class="btn-group" id="unitGroup">
+      <button class="chip active" data-unit="word">単語</button>
+      <button class="chip" data-unit="sent">例文</button>
+    </div>
+    <p class="row-note">「例文」では、英文と和訳で出題します（カード・4択・自動再生）。記録は単語とは別に残ります。</p>
   </div>
 
   <div class="control-row group-row">
@@ -168,12 +177,9 @@
   </div>
   <div class="control-row">
     <span class="control-label">例文＋和訳：和訳までの間</span>
-    <div class="btn-group" id="sentGapGroup">
-      <button class="chip" data-gap="1">1秒</button>
-      <button class="chip active" data-gap="3">3秒</button>
-      <button class="chip" data-gap="5">5秒</button>
-      <button class="chip" data-gap="8">8秒</button>
-      <button class="chip" data-gap="12">12秒</button>
+    <div class="gap-slider">
+      <input type="range" id="sentGapRange" min="1" max="30" step="1" value="3" aria-label="和訳までの間（秒）">
+      <output id="sentGapValue" for="sentGapRange">3秒</output>
     </div>
   </div>
 

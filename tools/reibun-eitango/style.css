@@ -861,3 +861,12 @@ body.game-open .admin-badge { display: none !important; }
 }
 .update-btn:hover { filter: brightness(1.08); }
 body.game-open .update-notice { display: none !important; }
+
+/* 出題の単位「例文」：選択肢も文なので詰めて並べ、答えの下の重要語は控えめに */
+.sent-choices .choice { padding: 10px 12px; line-height: 1.45; }
+.sent-en.key-words { font-weight: 400; font-size: .92rem; color: var(--sub); }
+
+/* 例文＋和訳：和訳までの間（1〜30秒のスライダー） */
+.gap-slider { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 200px; }
+.gap-slider input[type=range] { flex: 1; accent-color: var(--brand); cursor: pointer; }
+.gap-slider output { min-width: 3.5em; text-align: right; font-weight: 700; }

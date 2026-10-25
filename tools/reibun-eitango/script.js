@@ -225,7 +225,7 @@
   // 古い index.html がキャッシュに残ったまま新しい script.js が動くと、
   // 参照する要素が見つからず途中で止まってしまう（例：テストに正解してもごほうびが出ない）。
   // 気づけないまま使い続けることになるので、版が違えば知らせて直せるようにする。
-  var APP_VERSION = '2026-10-24b';
+  var APP_VERSION = '2026-10-25b';
   var noticeShown = false;
 
   function showUpdateNotice(reason) {
@@ -309,7 +309,7 @@
   // 「例文＋和訳」で、先の文を読み終えてから答えを出すまでの秒数
   function sentGap() {
     var g = parseFloat(settings.sentGap);
-    return g >= 0 ? g : 3;
+    return g >= 1 ? Math.min(g, 30) : 3;
   }
   function speak(text, lang, rate) {
     if (!synth) return Promise.resolve();
@@ -330,15 +330,48 @@
       try { synth.speak(u); } catch (e) { finish(); }
     });
   }
-  function speakNow(text, lang) {
+  function speakNow(text, lang, rate) {
     if (!synth) return;
     synth.cancel();
-    speak(text, lang);
+    speak(text, lang, rate);
+  }
+  // 出題中の項目の英語を読む（例文は「例文を読む速さ」で）
+  function speakItem(w) {
+    speakNow(w.word, 'en-US', w.isSent ? sentRate() : 1);
   }
 
   // =====================================================
   // 出題対象の組み立て
   // =====================================================
+  // 例文を、単語と同じ形の出題データにする（word=英文、meaning=和訳）。
+  // 記録のキーは単語と重ならないよう 'sent:番号'。セクションはその例文で初めて出る単語のものに合わせる。
+  var SENT_LIST = (function () {
+    var secOf = {};
+    WORD_LIST.forEach(function (w) { if (secOf[w.sentId] === undefined) secOf[w.sentId] = w.section; });
+    return SENTENCES.map(function (s) {
+      var sec = secOf[s.id];
+      if (sec === undefined) {
+        // 新しい単語が1つもない例文は、含まれる単語のうち一番前のセクションにする
+        sec = SECTIONS.length - 1;
+        s.words.forEach(function (p) {
+          WORD_LIST.forEach(function (w) { if (w.key === p[0].toLowerCase() && w.section < sec) sec = w.section; });
+        });
+      }
+      return {
+        key: 'sent:' + s.id, no: s.id, isSent: true, section: sec,
+        word: s.en, meaning: s.ja, sentEn: s.en, sentJa: s.ja,
+        keyWords: s.words, otherExamples: []
+      };
+    });
+  })();
+  var SENT_SECTIONS = SECTIONS.map(function (sec) {
+    return SENT_LIST.filter(function (s) { return s.section === sec.index; });
+  });
+  function isSentUnit() { return settings.unit === 'sent'; }
+  function unitItems() { return isSentUnit() ? SENT_LIST : WORD_LIST; }
+  function unitName() { return isSentUnit() ? '文' : '語'; }
+  function sectionItems(sec) { return isSentUnit() ? SENT_SECTIONS[sec.index] : sec.words; }
+
   function selectedSections() {
     var set = {};
     (settings.sections || []).forEach(function (i) { if (i >= 0 && i < SECTIONS.length) set[i] = true; });
@@ -350,7 +383,7 @@
     var dir = settings.dir;
     var mode = poolMode || settings.pool;
     var out = [];
-    WORD_LIST.forEach(function (w) {
+    unitItems().forEach(function (w) {
       if (!sel[w.section]) return;
       var key = keyOf(w, dir);
       var st = statusOf(key);
@@ -393,7 +426,8 @@
     var answered = totalC + totalU + totalW;
 
     var weak = 0, unsure = 0, mastered = 0, due = 0, dueCur = 0;
-    WORD_LIST.forEach(function (w) {
+    var items = unitItems(), unit = unitName();
+    items.forEach(function (w) {
       ['r', 'w'].forEach(function (d) {
         var key = keyOf(w, d);
         var st = statusOf(key);
@@ -411,15 +445,15 @@
     $('statWeak').textContent = weak;
     $('statDue').textContent = due;
 
-    var slots = WORD_LIST.length * 2;
-    $('totalCount').textContent = '収録 ' + WORD_LIST.length + ' 語 × 2つの向き＝' + slots + ' 項目';
+    var slots = items.length * 2;
+    $('totalCount').textContent = '収録 ' + items.length + ' ' + unit + ' × 2つの向き＝' + slots + ' 項目';
     $('goalFill').style.width = (mastered / slots * 100) + '%';
     $('goalText').textContent = 'マスター ' + mastered + ' / ' + slots +
       '（残り ' + (slots - mastered) + '）　※2回連続で正解するとマスター';
 
     var btn = $('dueBtn');
     if (dueCur > 0) {
-      btn.textContent = '🔁 今日の復習を始める（' + (settings.dir === 'r' ? '英→日' : '日→英') + ' ' + dueCur + ' 語）';
+      btn.textContent = '🔁 今日の復習を始める（' + (settings.dir === 'r' ? '英→日' : '日→英') + ' ' + dueCur + ' ' + unit + '）';
       btn.classList.remove('hidden');
     } else {
       btn.classList.add('hidden');
@@ -439,19 +473,21 @@
 
     SECTIONS.forEach(function (sec) {
       var mastered = 0, touched = 0;
-      sec.words.forEach(function (w) {
+      var list = sectionItems(sec);
+      list.forEach(function (w) {
         var key = keyOf(w, dir);
         if (isMastered(key)) mastered++;
         else if (history[key]) touched++;
       });
-      var mPct = Math.round(mastered / sec.words.length * 100);
-      var tPct = Math.round((mastered + touched) / sec.words.length * 100);
+      var size = list.length || 1;
+      var mPct = Math.round(mastered / size * 100);
+      var tPct = Math.round((mastered + touched) / size * 100);
       html += '<label class="grp-row">' +
         '<input type="checkbox" class="grp-cb" data-si="' + sec.index + '"' + (sel[sec.index] ? ' checked' : '') + '>' +
         '<span class="grp-name">' + escapeHtml(sec.title) + '<small> ' + sec.range + '</small></span>' +
         '<span class="grp-bar"><i class="seg-t" style="width:' + tPct + '%"></i>' +
         '<i class="seg-m" style="width:' + mPct + '%"></i></span>' +
-        '<span class="grp-num">' + mastered + '/' + sec.words.length + '</span>' +
+        '<span class="grp-num">' + mastered + '/' + list.length + '</span>' +
         '</label>';
     });
     $('groupPanel').innerHTML = html;
@@ -494,7 +530,7 @@
   function backOf(w, dir)  { return dir === 'r' ? w.meaning : w.word; }
 
   function startSession(words, autoPlay) {
-    if (!words.length) { alert('この条件に当てはまる単語がありません。範囲や出題範囲を見直してください。'); return; }
+    if (!words.length) { alert('この条件に当てはまる' + (isSentUnit() ? '例文' : '単語') + 'がありません。範囲や出題範囲を見直してください。'); return; }
     session = { queue: makeQueue(words), index: 0, current: null, graded: false, dir: settings.dir };
     showView('quiz');
     // 自動再生は session.current が決まってから動かす（先に動かすと読み上げる語が無い）
@@ -519,18 +555,30 @@
     // 自動再生の「例文＋和訳」では、単語の代わりに例文を表に出す（停止後の答えも同じ形で出すため覚えておく）
     session.sentMode = auto.on && settings.autoVoice === 'sent';
     $('qQuestion').textContent = session.sentMode ? (dir === 'r' ? w.sentEn : w.sentJa) : frontOf(w, dir);
-    $('qQuestion').classList.toggle('sent-mode', session.sentMode);
+    $('qQuestion').classList.toggle('sent-mode', session.sentMode || !!w.isSent);
 
     $('answerArea').classList.remove('hidden');
     $('revealBox').classList.add('hidden');
     $('speakBtn').classList.toggle('hidden', dir !== 'r');
 
-    if (!auto.on && settings.autoSpeak && dir === 'r') speakNow(w.word, 'en-US');
+    if (!auto.on && settings.autoSpeak && dir === 'r') speakItem(w);
+  }
+
+  // 例文の重要語を「語（意味）」の形で並べる
+  function keyWordsText(w) {
+    return '重要語：' + w.keyWords.map(function (p) { return p[0] + '（' + p[1] + '）'; }).join('　');
   }
 
   function revealAnswer() {
     var w = session.current, dir = session.dir;
-    if (session.sentMode) {
+    $('revealSentEn').classList.remove('key-words');
+    if (w.isSent) {
+      // 例文の出題：答えは反対側の文。下には重要語を添える
+      $('revealWord').textContent = backOf(w, dir);
+      $('revealSentEn').textContent = keyWordsText(w);
+      $('revealSentJa').textContent = '';
+      $('revealSentEn').classList.add('key-words');
+    } else if (session.sentMode) {
       // 答えは反対側の例文。下には単語と意味を添える
       $('revealWord').textContent = dir === 'r' ? w.sentJa : w.sentEn;
       $('revealSentEn').textContent = w.word;
@@ -540,7 +588,7 @@
       $('revealSentEn').textContent = w.sentEn;
       $('revealSentJa').textContent = w.sentJa;
     }
-    $('revealWord').classList.toggle('sent-mode', session.sentMode);
+    $('revealWord').classList.toggle('sent-mode', session.sentMode || !!w.isSent);
 
     var others = $('revealOthers');
     if (w.otherExamples && w.otherExamples.length) {
@@ -575,7 +623,7 @@
     stopAuto();
     updateDashboard();
     renderGroupPanel();
-    alert(session.queue.length + ' 語おつかれさまでした。ホームに戻ります。');
+    alert(session.queue.length + (session.queue[0].isSent ? ' 文' : ' 語') + 'おつかれさまでした。ホームに戻ります。');
     showView('controls');
   }
 
@@ -608,6 +656,7 @@
     var w = session.current, dir = session.dir;
     var wait = settings.autoSpeed * 1000;
     var voice = settings.autoVoice;
+    if (w.isSent && voice !== 'off') voice = 'sent';   // 例文の出題は、いつも「例文＋和訳」で読む
 
     if (synth) synth.cancel();    // 前の語の読み上げが残っていたら止める
     var first = Promise.resolve();
@@ -666,7 +715,7 @@
   // 4択テスト
   // =====================================================
   function startTest(words) {
-    if (!words.length) { alert('この条件に当てはまる単語がありません。'); return; }
+    if (!words.length) { alert('この条件に当てはまる' + (isSentUnit() ? '例文' : '単語') + 'がありません。'); return; }
     var queue = makeQueue(words);
     var dir = settings.dir;
     quizState = {
@@ -677,9 +726,10 @@
         var used = {}; used[answer] = true;
         var choices = [answer];
         var guard = 0;
+        var all = unitItems();
         while (choices.length < 4 && guard < 800) {
           guard++;
-          var c = WORD_LIST[Math.floor(Math.random() * WORD_LIST.length)];
+          var c = all[Math.floor(Math.random() * all.length)];
           var t = backOf(c, dir);
           if (used[t]) continue;
           used[t] = true;
@@ -703,6 +753,8 @@
     $('tScore').textContent = '正解 ' + quizState.correct;
     $('tBarFill').style.width = (quizState.index / quizState.questions.length * 100) + '%';
     $('tQuestion').textContent = frontOf(q.word, dir);
+    $('tQuestion').classList.toggle('sent-mode', !!q.word.isSent);
+    $('tChoices').classList.toggle('sent-choices', !!q.word.isSent);
     $('tSpeakBtn').classList.toggle('hidden', dir !== 'r');
     $('tFeedback').classList.add('hidden');
 
@@ -716,7 +768,7 @@
       box.appendChild(b);
     });
 
-    if (settings.autoSpeak && dir === 'r') speakNow(q.word.word, 'en-US');
+    if (settings.autoSpeak && dir === 'r') speakItem(q.word);
   }
 
   function answerTest(btn, text) {
@@ -733,10 +785,13 @@
     else { quizState.wrong.push(q.word); recordResult(q.word, quizState.dir, 'wrong'); }
 
     $('tScore').textContent = '正解 ' + quizState.correct;
-    $('tFbTitle').textContent = ok ? '◯ 正解' : '✕ 不正解 － 正解は「' + q.answer + '」';
+    // 例文は長いので、正解は緑の選択肢で示し、下には重要語を出す
+    $('tFbTitle').textContent = ok ? '◯ 正解'
+      : q.word.isSent ? '✕ 不正解 － 正解は緑の文です' : '✕ 不正解 － 正解は「' + q.answer + '」';
     $('tFbTitle').className = 'fb-title ' + (ok ? 'ok' : 'ng');
-    $('tSentEn').textContent = q.word.sentEn;
-    $('tSentJa').textContent = q.word.sentJa;
+    $('tSentEn').textContent = q.word.isSent ? keyWordsText(q.word) : q.word.sentEn;
+    $('tSentJa').textContent = q.word.isSent ? '' : q.word.sentJa;
+    $('tSentEn').classList.toggle('key-words', !!q.word.isSent);
     $('tNextBtn').textContent = quizState.index >= quizState.questions.length - 1 ? '結果を見る' : '次の問題へ';
     $('tFeedback').classList.remove('hidden');
   }
@@ -752,7 +807,7 @@
     if (!quizState.wrong.length) {
       box.innerHTML = '<p class="list-note">間違いはありませんでした。</p>';
     } else {
-      var html = '<p class="list-note">間違えた ' + quizState.wrong.length + ' 語（「苦手」として記録し、すぐ復習対象になります）：</p>';
+      var html = '<p class="list-note">間違えた ' + quizState.wrong.length + ' ' + (quizState.wrong[0].isSent ? '文' : '語') + '（「苦手」として記録し、すぐ復習対象になります）：</p>';
       quizState.wrong.forEach(function (w) {
         html += '<div class="rw-item"><b>' + w.no + '. ' + escapeHtml(w.word) + '</b> － ' + escapeHtml(w.meaning) + '</div>';
       });
@@ -1214,13 +1269,20 @@
     settings.dir = v; saveSettings();
     updateDashboard(); renderGroupPanel();
   });
+  bindChips('unitGroup', 'data-unit', function (v) {
+    settings.unit = v; saveSettings();
+    updateDashboard(); renderGroupPanel();
+  });
   bindChips('poolGroup', 'data-pool', function (v) { settings.pool = v; saveSettings(); });
   bindChips('orderGroup', 'data-order', function (v) { settings.order = v; saveSettings(); });
   bindChips('countGroup', 'data-count', function (v) { settings.count = parseInt(v, 10); saveSettings(); });
   bindChips('autoSpeedGroup', 'data-sec', function (v) { settings.autoSpeed = parseInt(v, 10); saveSettings(); });
   bindChips('autoVoiceGroup', 'data-voice', function (v) { settings.autoVoice = v; saveSettings(); });
   bindChips('sentRateGroup', 'data-rate', function (v) { settings.sentRate = parseFloat(v); saveSettings(); });
-  bindChips('sentGapGroup', 'data-gap', function (v) { settings.sentGap = parseFloat(v); saveSettings(); });
+  $('sentGapRange').addEventListener('input', function (e) {
+    settings.sentGap = parseInt(e.target.value, 10); saveSettings();
+    $('sentGapValue').textContent = settings.sentGap + '秒';
+  });
 
   $('autoSpeak').addEventListener('change', function (e) { settings.autoSpeak = e.target.checked; saveSettings(); });
   $('autoLoop').addEventListener('change', function (e) { settings.autoLoop = e.target.checked; saveSettings(); });
@@ -1252,8 +1314,8 @@
 
   $('quizHomeBtn').addEventListener('click', goHome);
   $('revealBtn').addEventListener('click', revealAnswer);
-  $('speakBtn').addEventListener('click', function () { speakNow(session.current.word, 'en-US'); });
-  $('speakAnswerBtn').addEventListener('click', function () { speakNow(session.current.word, 'en-US'); });
+  $('speakBtn').addEventListener('click', function () { speakItem(session.current); });
+  $('speakAnswerBtn').addEventListener('click', function () { speakItem(session.current); });
   $('stopBtn').addEventListener('click', function () { stopAuto(); revealAnswer(); });
   document.querySelector('.grade-actions').addEventListener('click', function (e) {
     var b = e.target.closest('.grade');
@@ -1261,7 +1323,7 @@
   });
 
   $('testHomeBtn').addEventListener('click', goHome);
-  $('tSpeakBtn').addEventListener('click', function () { speakNow(quizState.questions[quizState.index].word.word, 'en-US'); });
+  $('tSpeakBtn').addEventListener('click', function () { speakItem(quizState.questions[quizState.index].word); });
   $('tNextBtn').addEventListener('click', function () {
     if (quizState.index >= quizState.questions.length - 1) showTestResult();
     else { quizState.index++; renderTestQuestion(); }
@@ -1363,13 +1425,15 @@
   // 起動
   // =====================================================
   syncChips('dirGroup', 'data-dir', settings.dir);
+  syncChips('unitGroup', 'data-unit', isSentUnit() ? 'sent' : 'word');
   syncChips('poolGroup', 'data-pool', settings.pool);
   syncChips('orderGroup', 'data-order', settings.order);
   syncChips('countGroup', 'data-count', settings.count);
   syncChips('autoSpeedGroup', 'data-sec', settings.autoSpeed);
   syncChips('autoVoiceGroup', 'data-voice', settings.autoVoice);
   syncChips('sentRateGroup', 'data-rate', sentRate());
-  syncChips('sentGapGroup', 'data-gap', sentGap());
+  $('sentGapRange').value = sentGap();
+  $('sentGapValue').textContent = sentGap() + '秒';
   $('autoSpeak').checked = !!settings.autoSpeak;
   $('autoLoop').checked = !!settings.autoLoop;
 
