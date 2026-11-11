@@ -607,9 +607,23 @@
 
   function grade(result) {
     if (!session.current || session.graded) return;
+    // 答えを出す前（キーの押しっぱなし・連打など）は採点しない
+    if ($('revealBox').classList.contains('hidden')) return;
     recordResult(session.current, session.dir, result);
     session.graded = true;
     updateDashboard();
+    if (auto.on) {
+      // 自動再生の途中で採点したときは、待っている「次へ」を取り消してから進める
+      // （取り消さないと、採点で 1 問・自動再生で 1 問の計 2 問進み、1 問飛ばされる）
+      auto.token++;
+      clearTimeout(auto.timer);
+      if (synth) synth.cancel();
+      // 「くり返す」のときは自動再生と同じく最初に戻る
+      if (settings.autoLoop && session.index >= session.queue.length - 1) session.index = -1;
+      nextQuestion();
+      if (auto.on) autoTick();
+      return;
+    }
     nextQuestion();
   }
 
